@@ -1,0 +1,104 @@
+export interface RoomContributor {
+  user_id: string;
+  display_name: string;
+  avatar_url: string;
+  lat: number;
+  lng: number;
+  speed: number;
+  last_update: number;
+  is_leader: boolean;
+  is_captain: boolean;
+  from_station: string;
+  to_station: string;
+  trip_distance_km: number;
+}
+
+export interface WaitingContributor {
+  user_id: string;
+  display_name: string;
+  avatar_url: string;
+  from_station: string;
+  to_station: string;
+  trip_distance_km: number;
+  joined_at: number;
+}
+
+export interface LiveRoom {
+  train_id: string;
+  trip_id: number | null;
+  status: string;
+  lat: number;
+  lng: number;
+  speed: number;
+  direction: string;
+  start_station: string;
+  end_station: string;
+  contributors_count: number;
+  listeners_count: number;
+  waiting_count: number;
+  max_active_contributors: number;
+  leader_id: string | null;
+  contributors: RoomContributor[];
+  waiting_list: WaitingContributor[];
+}
+
+export interface DashboardRoomsResponse {
+  total_rooms: number;
+  total_contributors: number;
+  total_listeners: number;
+  total_waiting: number;
+  rooms: LiveRoom[];
+}
+
+export interface DashboardStats {
+  stations: number;
+  trains: number;
+  trips: number;
+  active_rooms: number;
+}
+
+export interface RoomEvent {
+  timestamp: number;
+  event_type: string;
+  user_id: string;
+  detail: string;
+}
+
+export interface RoomLogsResponse {
+  train_id: string;
+  total: number;
+  logs: RoomEvent[];
+}
+
+export interface FeedEntry {
+  ts: number;
+  user_id: string;
+  display_name: string;
+  type: string; // "gps" | "far_warning"
+  lat: number;
+  lng: number;
+  speed: number;
+  bearing?: number;
+  distance_m?: number | null;
+  detail?: string;
+}
+
+export interface FeedResponse {
+  train_id: string;
+  total: number;
+  feed: FeedEntry[];
+}
+
+export interface BanInfo {
+  user_id: string;
+  reason: string;
+  banned_at: number;
+  duration_minutes: number;
+  expires_at: number | null;
+  banned_by: string;
+}
+
+export interface BanListResponse {
+  total: number;
+  bans: BanInfo[];
+}
