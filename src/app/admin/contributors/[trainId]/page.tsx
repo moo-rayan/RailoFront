@@ -16,7 +16,6 @@ import {
   MapPin,
   Crown,
   Ban,
-  Eye,
   ArrowRight,
   Gauge,
   ScrollText,
@@ -282,11 +281,11 @@ export default function TrainDetailPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">المستمعين</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">نمط التتبع</CardTitle>
+            <Radio className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{room.listeners_count}</div>
+            <div className="text-xs text-muted-foreground pt-1">HTTP مستمر</div>
           </CardContent>
         </Card>
         <Card>
@@ -371,6 +370,7 @@ export default function TrainDetailPage() {
                 <div
                   key={c.user_id}
                   className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    c.is_stale ? "bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 opacity-60" :
                     c.is_captain ? "bg-yellow-50/50 dark:bg-yellow-950/10 border-yellow-300 dark:border-yellow-800" :
                     c.is_leader ? "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800" : "bg-card"
                   }`}
@@ -387,6 +387,12 @@ export default function TrainDetailPage() {
                       <span className="font-medium truncate">
                         {c.display_name || "مستخدم مجهول"}
                       </span>
+                      {c.is_stale && (
+                        <Badge variant="outline" className="text-[10px] h-5 text-gray-400 border-gray-300">
+                          <Clock className="h-2.5 w-2.5 ml-0.5" />
+                          قديم
+                        </Badge>
+                      )}
                       {c.is_captain && (
                         <Badge className="bg-yellow-500 hover:bg-yellow-600 text-[10px] h-5">
                           <Train className="h-2.5 w-2.5 ml-0.5" />

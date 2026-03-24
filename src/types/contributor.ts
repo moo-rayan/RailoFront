@@ -8,6 +8,7 @@ export interface RoomContributor {
   last_update: number;
   is_leader: boolean;
   is_captain: boolean;
+  is_stale: boolean;
   from_station: string;
   to_station: string;
   trip_distance_km: number;
@@ -45,7 +46,6 @@ export interface LiveRoom {
 export interface DashboardRoomsResponse {
   total_rooms: number;
   total_contributors: number;
-  total_listeners: number;
   total_waiting: number;
   rooms: LiveRoom[];
 }

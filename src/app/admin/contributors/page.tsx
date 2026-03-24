@@ -17,7 +17,7 @@ import {
   Radio,
   Search,
   Crown,
-  Eye,
+  Hourglass,
   Zap,
   ChevronLeft,
 } from "lucide-react"
@@ -34,7 +34,7 @@ export default function ContributorsPage() {
 
   const rooms = roomsData?.rooms ?? []
   const totalContributors = roomsData?.total_contributors ?? 0
-  const totalListeners = roomsData?.total_listeners ?? 0
+  const totalWaiting = roomsData?.total_waiting ?? 0
 
   const filteredRooms = rooms.filter((room: LiveRoom) =>
     room.train_id.toLowerCase().includes(searchQuery.toLowerCase())
@@ -88,11 +88,11 @@ export default function ContributorsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">مستمعين</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">في الانتظار</CardTitle>
+            <Hourglass className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalListeners}</div>
+            <div className="text-2xl font-bold">{totalWaiting}</div>
           </CardContent>
         </Card>
         <Card>
@@ -179,11 +179,13 @@ export default function ContributorsPage() {
                     <span className="font-medium">{room.contributors_count}</span>
                     <span className="text-muted-foreground">مساهم</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="font-medium">{room.listeners_count}</span>
-                    <span className="text-muted-foreground">مستمع</span>
-                  </div>
+                  {room.waiting_count > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Hourglass className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-medium">{room.waiting_count}</span>
+                      <span className="text-muted-foreground">انتظار</span>
+                    </div>
+                  )}
                   {room.speed > 0 && (
                     <span className="font-mono text-xs text-muted-foreground mr-auto">
                       {room.speed.toFixed(0)} كم/س

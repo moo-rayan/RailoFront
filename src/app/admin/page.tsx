@@ -106,7 +106,8 @@ export default function AdminDashboard() {
                   <div className="flex-1">
                     <p className="text-sm font-medium font-mono">قطار {room.train_id}</p>
                     <p className="text-xs text-muted-foreground">
-                      {room.contributors_count} مساهم &bull; {room.listeners_count} مستمع
+                      {room.contributors_count} مساهم
+                      {room.waiting_count > 0 && ` • ${room.waiting_count} انتظار`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
