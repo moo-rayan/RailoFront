@@ -125,8 +125,10 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
   const [showResults, setShowResults] = useState(false)
   const [timeHHMM, setTimeHHMM] = useState("")
   const [period, setPeriod] = useState<"ص" | "م">("ص")
-  const [stopOrder, setStopOrder] = useState<number>(
-    trip.stops.length > 0 ? Math.max(...trip.stops.map((s) => s.stop_order)) + 1 : 1
+  // insertAfter: -1 = at the very start, N = after stop with stop_order=N
+  const sortedExisting = [...trip.stops].sort((a, b) => a.stop_order - b.stop_order)
+  const [insertAfter, setInsertAfter] = useState<number>(
+    sortedExisting.length > 0 ? sortedExisting[sortedExisting.length - 1].stop_order : -1
   )
   const [error, setError] = useState("")
   const searchRef = useRef<HTMLDivElement>(null)
@@ -169,12 +171,14 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
 
   const timeAr = timeHHMM ? `${timeHHMM} ${period}` : ""
   const timeEn = timeHHMM ? `${timeHHMM} ${period === "ص" ? "AM" : "PM"}` : ""
+  // stop_order to send = insertAfter + 1  (-1 → 0+1=1 = beginning)
+  const stopOrderToSend = insertAfter + 1
 
   const addMutation = useMutation({
     mutationFn: () =>
       tripsApi.addStop(trip.id, {
         station_id: selectedStation!.id,
-        stop_order: stopOrder,
+        stop_order: stopOrderToSend,
         time_ar: timeAr,
         time_en: timeEn,
       }),
@@ -285,16 +289,21 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
           </div>
         </div>
 
-        {/* Order input */}
-        <div className="flex flex-col gap-1">
-          <Input
-            type="number"
-            min={1}
-            placeholder="الترتيب"
-            value={stopOrder}
-            onChange={(e) => setStopOrder(Number(e.target.value))}
-            className="text-center w-24"
-          />
+        {/* Insert position select */}
+        <div className="shrink-0">
+          <select
+            value={insertAfter}
+            onChange={(e) => setInsertAfter(Number(e.target.value))}
+            className="h-9 rounded-md border bg-background px-2 text-sm text-right w-44 focus:outline-none focus:ring-2 focus:ring-ring"
+            dir="rtl"
+          >
+            <option value={-1}>في البداية (أول وقفة)</option>
+            {sortedExisting.map((s) => (
+              <option key={s.id} value={s.stop_order}>
+                بعد: {s.station_ar || `وقفة ${s.stop_order}`}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
