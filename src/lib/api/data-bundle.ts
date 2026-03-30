@@ -22,7 +22,9 @@ export const dataBundleApi = {
   },
 
   rebuild: async (): Promise<BundleRebuildResult> => {
-    const response = await apiClient.post('/data/rebuild');
+    const response = await apiClient.post('/data/rebuild', null, {
+      timeout: 300_000,
+    });
     return response.data;
   },
 };
