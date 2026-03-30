@@ -563,6 +563,12 @@ function ExpandedDetail({ log }: { log: AuditLogEntry }) {
         <DetailRow label="المسار" value={log.path ? `${log.method ?? ""} ${log.path}` : null} mono />
         <DetailRow label="كود الاستجابة" value={log.status_code?.toString()} />
         <DetailRow label="معرف المستخدم" value={log.user_id} mono />
+        {typeof log.metadata?.user_name === "string" && log.metadata.user_name && (
+          <DetailRow label="اسم المستخدم" value={log.metadata.user_name} />
+        )}
+        {typeof log.metadata?.user_email === "string" && log.metadata.user_email && (
+          <DetailRow label="البريد الإلكتروني" value={log.metadata.user_email} />
+        )}
         <DetailRow
           label="الوقت الكامل"
           value={log.created_at ? formatFullTime(log.created_at) : null}
