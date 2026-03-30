@@ -123,7 +123,8 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
   const [isSearching, setIsSearching] = useState(false)
   const [selectedStation, setSelectedStation] = useState<Station | null>(null)
   const [showResults, setShowResults] = useState(false)
-  const [timeAr, setTimeAr] = useState("")
+  const [timeHHMM, setTimeHHMM] = useState("")
+  const [period, setPeriod] = useState<"ص" | "م">("ص")
   const [stopOrder, setStopOrder] = useState<number>(
     trip.stops.length > 0 ? Math.max(...trip.stops.map((s) => s.stop_order)) + 1 : 1
   )
@@ -166,18 +167,23 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
     return () => document.removeEventListener("mousedown", handle)
   }, [])
 
+  const timeAr = timeHHMM ? `${timeHHMM} ${period}` : ""
+  const timeEn = timeHHMM ? `${timeHHMM} ${period === "ص" ? "AM" : "PM"}` : ""
+
   const addMutation = useMutation({
     mutationFn: () =>
       tripsApi.addStop(trip.id, {
         station_id: selectedStation!.id,
         stop_order: stopOrder,
         time_ar: timeAr,
+        time_en: timeEn,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["train-trips"] })
       setSelectedStation(null)
       setSearchQuery("")
-      setTimeAr("")
+      setTimeHHMM("")
+      setPeriod("ص")
       setError("")
       onSuccess()
     },
@@ -186,7 +192,7 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
 
   function handleSubmit() {
     if (!selectedStation) { setError("يجب اختيار محطة"); return }
-    if (!timeAr.trim()) { setError("يجب إدخال الوقت"); return }
+    if (!timeHHMM.trim()) { setError("يجب إدخال الوقت"); return }
     setError("")
     addMutation.mutate()
   }
@@ -253,14 +259,30 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
           )}
         </div>
 
-        {/* Time input */}
-        <div className="flex flex-col gap-1">
+        {/* Time input: HH:MM + ص/م */}
+        <div className="flex items-center gap-1.5">
           <Input
-            placeholder="الوقت (مثال: 5:30 ص)"
-            value={timeAr}
-            onChange={(e) => setTimeAr(e.target.value)}
-            className="text-right w-40"
+            placeholder="5:30"
+            value={timeHHMM}
+            onChange={(e) => setTimeHHMM(e.target.value)}
+            className="text-center w-24"
           />
+          <div className="flex rounded-md border overflow-hidden shrink-0">
+            {(["ص", "م"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  period === p
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Order input */}
