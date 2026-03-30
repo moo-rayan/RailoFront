@@ -19,7 +19,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Clock, MapPin, Map as MapIcon, List } from "lucide-react"
 import { TrainRouteMap } from "./train-route-map"
 
@@ -49,7 +48,7 @@ export function TrainStopsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-[95vw] xl:max-w-7xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
@@ -140,25 +139,18 @@ function TripDetail({ trip }: { trip: Trip }) {
       </div>
 
       {/* Map + Stops side by side */}
-      <Tabs defaultValue="map" dir="rtl">
-        <TabsList className="grid w-full grid-cols-2 max-w-xs">
-          <TabsTrigger value="map" className="flex items-center gap-1.5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Map column */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
             <MapIcon className="h-4 w-4" />
             الخريطة
-          </TabsTrigger>
-          <TabsTrigger value="stops" className="flex items-center gap-1.5">
-            <List className="h-4 w-4" />
-            المحطات
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="map" className="mt-3">
+          </div>
           <TrainRouteMap
             tripId={trip.id}
-            className="w-full h-[450px] rounded-lg overflow-hidden border"
+            className="w-full h-[480px] rounded-lg overflow-hidden border"
           />
-          {/* Station legend */}
-          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground justify-center">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground justify-center">
             <span className="flex items-center gap-1">
               <span className="inline-block w-3 h-3 rounded-full bg-green-600 border border-white" />
               محطة الانطلاق
@@ -172,62 +164,69 @@ function TripDetail({ trip }: { trip: Trip }) {
               محطة الوصول
             </span>
           </div>
-        </TabsContent>
+        </div>
 
-        <TabsContent value="stops" className="mt-3">
+        {/* Stops column */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <List className="h-4 w-4" />
+            المحطات
+          </div>
           {trip.stops && trip.stops.length > 0 ? (
             <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right w-16">#</TableHead>
-                    <TableHead className="text-right">المحطة</TableHead>
-                    <TableHead className="text-right">الوقت</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {trip.stops
-                    .sort((a, b) => a.stop_order - b.stop_order)
-                    .map((stop, i) => (
-                      <TableRow
-                        key={stop.id}
-                        className={
-                          i === 0
-                            ? "bg-green-50 dark:bg-green-950/20"
-                            : i === trip.stops.length - 1
-                              ? "bg-red-50 dark:bg-red-950/20"
-                              : ""
-                        }
-                      >
-                        <TableCell className="text-center font-mono text-sm">
-                          {stop.stop_order}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{stop.station_ar}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {stop.station_en}
+              <div className="max-h-[480px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow>
+                      <TableHead className="text-right w-16">#</TableHead>
+                      <TableHead className="text-right">المحطة</TableHead>
+                      <TableHead className="text-right">الوقت</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {trip.stops
+                      .sort((a, b) => a.stop_order - b.stop_order)
+                      .map((stop, i) => (
+                        <TableRow
+                          key={stop.id}
+                          className={
+                            i === 0
+                              ? "bg-green-50 dark:bg-green-950/20"
+                              : i === trip.stops.length - 1
+                                ? "bg-red-50 dark:bg-red-950/20"
+                                : ""
+                          }
+                        >
+                          <TableCell className="text-center font-mono text-sm">
+                            {stop.stop_order}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{stop.station_ar}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {stop.station_en}
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-mono">{stop.time_ar}</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-mono">{stop.time_ar}</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ) : (
             <div className="text-center py-4 text-muted-foreground">
               لا توجد بيانات وقفات لهذه الرحلة
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
   )
 }
