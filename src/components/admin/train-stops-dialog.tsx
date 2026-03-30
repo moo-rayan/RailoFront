@@ -1,9 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useEffect, useRef, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { tripsApi } from "@/lib/api/trips"
-import { Trip } from "@/types"
+import { stationsApi } from "@/lib/api/stations"
+import { Trip, TripStop } from "@/types"
+import type { Station } from "@/types"
 import {
   Dialog,
   DialogContent,
@@ -19,7 +21,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Clock, MapPin, Map as MapIcon, List } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check } from "lucide-react"
 import { TrainRouteMap } from "./train-route-map"
 
 interface TrainStopsDialogProps {
@@ -111,7 +115,207 @@ export function TrainStopsDialog({
   )
 }
 
+// ── Add Stop Form ─────────────────────────────────────────────────────────────
+
+function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void }) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<Station[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null)
+  const [showResults, setShowResults] = useState(false)
+  const [timeAr, setTimeAr] = useState("")
+  const [stopOrder, setStopOrder] = useState<number>(
+    trip.stops.length > 0 ? Math.max(...trip.stops.map((s) => s.stop_order)) + 1 : 1
+  )
+  const [error, setError] = useState("")
+  const searchRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const queryClient = useQueryClient()
+
+  // Debounced station search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setShowResults(false)
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const res = await stationsApi.search(searchQuery.trim(), 1, 10)
+        setSearchResults(res.items)
+        setShowResults(true)
+      } catch {
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }, 350)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [searchQuery])
+
+  // Close results on outside click
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowResults(false)
+      }
+    }
+    document.addEventListener("mousedown", handle)
+    return () => document.removeEventListener("mousedown", handle)
+  }, [])
+
+  const addMutation = useMutation({
+    mutationFn: () =>
+      tripsApi.addStop(trip.id, {
+        station_id: selectedStation!.id,
+        stop_order: stopOrder,
+        time_ar: timeAr,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["train-trips"] })
+      setSelectedStation(null)
+      setSearchQuery("")
+      setTimeAr("")
+      setError("")
+      onSuccess()
+    },
+    onError: () => setError("فشل إضافة الوقفة، حاول مرة أخرى"),
+  })
+
+  function handleSubmit() {
+    if (!selectedStation) { setError("يجب اختيار محطة"); return }
+    if (!timeAr.trim()) { setError("يجب إدخال الوقت"); return }
+    setError("")
+    addMutation.mutate()
+  }
+
+  return (
+    <div className="border rounded-lg p-4 bg-muted/20 space-y-3" dir="rtl">
+      <p className="text-sm font-semibold flex items-center gap-1.5">
+        <Plus className="h-4 w-4 text-primary" />
+        إضافة وقفة جديدة
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-start">
+        {/* Station search */}
+        <div ref={searchRef} className="relative">
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="ابحث عن محطة..."
+              value={selectedStation ? selectedStation.name_ar : searchQuery}
+              onChange={(e) => {
+                setSelectedStation(null)
+                setSearchQuery(e.target.value)
+              }}
+              className="pr-9 text-right"
+              onFocus={() => searchResults.length > 0 && setShowResults(true)}
+            />
+            {selectedStation && (
+              <button
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => { setSelectedStation(null); setSearchQuery("") }}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {isSearching && !selectedStation && (
+              <Loader2 className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          {/* Search results dropdown */}
+          {showResults && searchResults.length > 0 && !selectedStation && (
+            <div className="absolute top-full mt-1 w-full z-50 bg-card border rounded-lg shadow-lg max-h-52 overflow-y-auto">
+              {searchResults.map((station) => (
+                <button
+                  key={station.id}
+                  className="w-full text-right px-3 py-2 hover:bg-accent flex items-center gap-2 text-sm border-b last:border-0"
+                  onClick={() => {
+                    setSelectedStation(station)
+                    setSearchQuery("")
+                    setShowResults(false)
+                  }}
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="font-medium">{station.name_ar}</span>
+                  <span className="text-muted-foreground text-xs">{station.name_en}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {showResults && searchResults.length === 0 && !isSearching && searchQuery.length > 0 && !selectedStation && (
+            <div className="absolute top-full mt-1 w-full z-50 bg-card border rounded-lg shadow-lg px-3 py-2 text-sm text-muted-foreground text-center">
+              لا توجد نتائج
+            </div>
+          )}
+        </div>
+
+        {/* Time input */}
+        <div className="flex flex-col gap-1">
+          <Input
+            placeholder="الوقت (مثال: 5:30 ص)"
+            value={timeAr}
+            onChange={(e) => setTimeAr(e.target.value)}
+            className="text-right w-40"
+          />
+        </div>
+
+        {/* Order input */}
+        <div className="flex flex-col gap-1">
+          <Input
+            type="number"
+            min={1}
+            placeholder="الترتيب"
+            value={stopOrder}
+            onChange={(e) => setStopOrder(Number(e.target.value))}
+            className="text-center w-24"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {selectedStation && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1 bg-primary/10 text-primary rounded-full px-2 py-0.5">
+            <Check className="h-3 w-3" />
+            {selectedStation.name_ar}
+          </span>
+        )}
+        <Button
+          size="sm"
+          onClick={handleSubmit}
+          disabled={addMutation.isPending || !selectedStation || !timeAr.trim()}
+          className="mr-auto"
+        >
+          {addMutation.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin ml-1" />
+          ) : (
+            <Plus className="h-3.5 w-3.5 ml-1" />
+          )}
+          إضافة الوقفة
+        </Button>
+      </div>
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  )
+}
+
+// ── Trip Detail ───────────────────────────────────────────────────────────────
+
 function TripDetail({ trip }: { trip: Trip }) {
+  const [showAddForm, setShowAddForm] = useState(false)
+  const queryClient = useQueryClient()
+
+  const removeMutation = useMutation({
+    mutationFn: (stopId: number) => tripsApi.removeStop(trip.id, stopId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["train-trips"] }),
+  })
+
+  const sortedStops = [...(trip.stops ?? [])].sort((a, b) => a.stop_order - b.stop_order)
+
   return (
     <div className="space-y-4">
       {/* Trip header */}
@@ -132,9 +336,9 @@ function TripDetail({ trip }: { trip: Trip }) {
             <span>المدة: {trip.duration_ar}</span>
           </div>
         </div>
-        <div className="text-left">
+        <div className="flex flex-col items-end gap-1">
           <Badge variant="outline">{trip.stops_count} محطة</Badge>
-          <div className="text-sm text-muted-foreground mt-1">{trip.type_ar}</div>
+          <div className="text-sm text-muted-foreground">{trip.type_ar}</div>
         </div>
       </div>
 
@@ -168,61 +372,91 @@ function TripDetail({ trip }: { trip: Trip }) {
 
         {/* Stops column */}
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-            <List className="h-4 w-4" />
-            المحطات
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+              <List className="h-4 w-4" />
+              المحطات ({sortedStops.length})
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAddForm((v) => !v)}
+              className="h-7 gap-1 text-xs"
+            >
+              {showAddForm ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+              {showAddForm ? "إلغاء" : "إضافة وقفة"}
+            </Button>
           </div>
-          {trip.stops && trip.stops.length > 0 ? (
+
+          {/* Add Stop Form */}
+          {showAddForm && (
+            <AddStopForm
+              trip={trip}
+              onSuccess={() => setShowAddForm(false)}
+            />
+          )}
+
+          {/* Stops table */}
+          {sortedStops.length > 0 ? (
             <div className="border rounded-lg overflow-hidden">
-              <div className="max-h-[480px] overflow-y-auto">
+              <div className="max-h-[400px] overflow-y-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
-                      <TableHead className="text-right w-16">#</TableHead>
+                      <TableHead className="text-right w-12">#</TableHead>
                       <TableHead className="text-right">المحطة</TableHead>
                       <TableHead className="text-right">الوقت</TableHead>
+                      <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {trip.stops
-                      .sort((a, b) => a.stop_order - b.stop_order)
-                      .map((stop, i) => (
-                        <TableRow
-                          key={stop.id}
-                          className={
-                            i === 0
-                              ? "bg-green-50 dark:bg-green-950/20"
-                              : i === trip.stops.length - 1
-                                ? "bg-red-50 dark:bg-red-950/20"
-                                : ""
-                          }
-                        >
-                          <TableCell className="text-center font-mono text-sm">
-                            {stop.stop_order}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{stop.station_ar}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {stop.station_en}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-mono">{stop.time_ar}</span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                    {sortedStops.map((stop, i) => (
+                      <TableRow
+                        key={stop.id}
+                        className={
+                          i === 0
+                            ? "bg-green-50 dark:bg-green-950/20"
+                            : i === sortedStops.length - 1
+                              ? "bg-red-50 dark:bg-red-950/20"
+                              : ""
+                        }
+                      >
+                        <TableCell className="text-center font-mono text-sm">
+                          {stop.stop_order}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{stop.station_ar}</div>
+                          <div className="text-xs text-muted-foreground">{stop.station_en}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-mono text-sm">{stop.time_ar}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                            onClick={() => removeMutation.mutate(stop.id)}
+                            disabled={removeMutation.isPending}
+                            title="حذف الوقفة"
+                          >
+                            {removeMutation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
             </div>
           ) : (
-            <div className="text-center py-4 text-muted-foreground">
-              لا توجد بيانات وقفات لهذه الرحلة
+            <div className="text-center py-8 text-muted-foreground border rounded-lg">
+              لا توجد وقفات مسجلة لهذه الرحلة
             </div>
           )}
         </div>
