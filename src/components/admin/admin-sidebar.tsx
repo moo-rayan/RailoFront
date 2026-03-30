@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   FileText,
   UserX,
+  UsersRound,
   ExternalLink,
   LogOut,
 } from "lucide-react"
@@ -62,6 +63,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/contributors",
     icon: Users,
     minLevel: "monitor",
+  },
+  {
+    title: "المستخدمين",
+    href: "/admin/users",
+    icon: UsersRound,
+    minLevel: "fulladmin",
   },
   {
     title: "التقارير",
