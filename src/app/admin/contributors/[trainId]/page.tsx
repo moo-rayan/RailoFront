@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
+import { LiveTrainMap } from "@/components/admin/train-route-map"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -301,6 +302,38 @@ export default function TrainDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Route Map with live position */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MapPin className="h-5 w-5 text-primary" />
+            خريطة المسار
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LiveTrainMap
+            tripId={room.trip_id}
+            trainNumber={room.train_id}
+            className="w-full h-[350px] rounded-lg overflow-hidden border"
+            livePosition={{ lat: room.lat, lng: room.lng, speed: room.speed }}
+          />
+          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground justify-center">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-orange-500 border border-white" />
+              موقع القطار الحالي
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-green-600 border border-white" />
+              محطة الانطلاق
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-red-600 border border-white" />
+              محطة الوصول
+            </span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Max contributors control */}
       <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border">

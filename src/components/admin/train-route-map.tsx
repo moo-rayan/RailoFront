@@ -9,11 +9,26 @@ import {
   useMapsLibrary,
 } from "@vis.gl/react-google-maps"
 import { railwayApi, type TripStationPoint } from "@/lib/api/railway"
-import { Loader2 } from "lucide-react"
+import { tripsApi } from "@/lib/api/trips"
+import { Loader2, MapPinOff } from "lucide-react"
+
+interface LivePosition {
+  lat: number
+  lng: number
+  speed: number
+}
 
 interface TrainRouteMapProps {
   tripId: number
   className?: string
+  livePosition?: LivePosition | null
+}
+
+interface LiveTrainMapProps {
+  tripId?: number | null
+  trainNumber: string
+  className?: string
+  livePosition?: LivePosition | null
 }
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
@@ -34,12 +49,24 @@ function createStationIcon(
   )}`
 }
 
-function RouteRenderer({ tripId }: { tripId: number }) {
+// Train icon SVG for live position
+function createTrainIcon(): string {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+      <circle cx="18" cy="18" r="16" fill="#f97316" stroke="white" stroke-width="3"/>
+      <path d="M18 10 L18 22 M14 18 L18 22 L22 18" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="rotate(0 18 18)"/>
+      <circle cx="18" cy="18" r="3" fill="white"/>
+    </svg>`,
+  )}`
+}
+
+function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?: LivePosition | null }) {
   const map = useMap()
   const mapsLib = useMapsLibrary("maps")
 
   const polylineRef = useRef<google.maps.Polyline | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
+  const trainMarkerRef = useRef<google.maps.Marker | null>(null)
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null)
 
   const { data: pathData } = useQuery({
@@ -165,15 +192,55 @@ function RouteRenderer({ tripId }: { tripId: number }) {
     }
   }, [map, mapsLib, stationsData])
 
+  // Draw/update live train position marker
+  useEffect(() => {
+    if (!map || !mapsLib) return
+    if (!livePosition || (livePosition.lat === 0 && livePosition.lng === 0)) {
+      // Remove marker if no live position
+      if (trainMarkerRef.current) {
+        trainMarkerRef.current.setMap(null)
+        trainMarkerRef.current = null
+      }
+      return
+    }
+
+    const pos = { lat: livePosition.lat, lng: livePosition.lng }
+
+    if (trainMarkerRef.current) {
+      // Update existing marker position smoothly
+      trainMarkerRef.current.setPosition(pos)
+      trainMarkerRef.current.setTitle(`القطار — ${livePosition.speed.toFixed(0)} كم/س`)
+    } else {
+      // Create new train marker
+      trainMarkerRef.current = new google.maps.Marker({
+        map,
+        position: pos,
+        title: `القطار — ${livePosition.speed.toFixed(0)} كم/س`,
+        icon: {
+          url: createTrainIcon(),
+          scaledSize: new google.maps.Size(36, 36),
+          anchor: new google.maps.Point(18, 18),
+        },
+        zIndex: 100,
+      })
+    }
+  }, [map, mapsLib, livePosition])
+
   // Full cleanup on unmount
   useEffect(() => {
-    return cleanup
+    return () => {
+      cleanup()
+      if (trainMarkerRef.current) {
+        trainMarkerRef.current.setMap(null)
+        trainMarkerRef.current = null
+      }
+    }
   }, [cleanup])
 
   return null
 }
 
-export function TrainRouteMap({ tripId, className }: TrainRouteMapProps) {
+export function TrainRouteMap({ tripId, className, livePosition }: TrainRouteMapProps) {
   const { data: pathData, isLoading: pathLoading, error: pathError } = useQuery({
     queryKey: ["trip-path", tripId],
     queryFn: () => railwayApi.getTripPath(tripId),
@@ -226,8 +293,58 @@ export function TrainRouteMap({ tripId, className }: TrainRouteMapProps) {
         streetViewControl={false}
         fullscreenControl={true}
       >
-        <RouteRenderer tripId={tripId} />
+        <RouteRenderer tripId={tripId} livePosition={livePosition} />
       </Map>
     </APIProvider>
+  )
+}
+
+/**
+ * LiveTrainMap — wrapper for live tracking page.
+ * Resolves tripId automatically from trainNumber if not provided.
+ */
+export function LiveTrainMap({ tripId, trainNumber, className, livePosition }: LiveTrainMapProps) {
+  // Fetch trips by train number to resolve tripId if not provided
+  const { data: trips, isLoading: tripsLoading } = useQuery({
+    queryKey: ["train-trips", trainNumber],
+    queryFn: () => tripsApi.getByTrainNumber(trainNumber),
+    staleTime: 60 * 60 * 1000,
+    enabled: !tripId && !!trainNumber,
+  })
+
+  const resolvedTripId = tripId ?? trips?.[0]?.id ?? null
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className={`flex items-center justify-center bg-muted/50 rounded-lg ${className}`}>
+        <p className="text-muted-foreground text-sm">مفتاح Google Maps غير متوفر</p>
+      </div>
+    )
+  }
+
+  if (!resolvedTripId && tripsLoading) {
+    return (
+      <div className={`flex items-center justify-center bg-muted/50 rounded-lg ${className}`}>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="mr-2 text-sm text-muted-foreground">جاري تحميل بيانات الخريطة...</span>
+      </div>
+    )
+  }
+
+  if (!resolvedTripId) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-muted/50 rounded-lg ${className}`}>
+        <MapPinOff className="h-8 w-8 text-muted-foreground/40 mb-2" />
+        <p className="text-muted-foreground text-sm">لا توجد بيانات مسار متاحة لهذا القطار</p>
+      </div>
+    )
+  }
+
+  return (
+    <TrainRouteMap
+      tripId={resolvedTripId}
+      className={className}
+      livePosition={livePosition}
+    />
   )
 }
