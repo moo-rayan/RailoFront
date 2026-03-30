@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useTheme } from "next-themes"
 import {
   APIProvider,
   Map,
@@ -36,11 +37,50 @@ const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
 // Egypt center fallback
 const EGYPT_CENTER = { lat: 30.0444, lng: 31.2357 }
 
-// SVG circle icon for station markers
-function createStationIcon(
-  color: string,
-  size: number,
-): string {
+// ── Clean map styles — cities only ──────────────────────────────────────────
+
+const CLEAN_LIGHT_STYLE: google.maps.MapTypeStyle[] = [
+  { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+  { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ color: "#c0c0c0" }] },
+  { featureType: "administrative.province", elementType: "geometry.stroke", stylers: [{ color: "#dadada" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#333333" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "road", stylers: [{ visibility: "off" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#eeeeee" }, { visibility: "simplified" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#e0e0e0" }, { visibility: "simplified" }] },
+  { featureType: "road", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9d6e3" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#9e9e9e" }] },
+]
+
+const CLEAN_DARK_STYLE: google.maps.MapTypeStyle[] = [
+  { elementType: "geometry", stylers: [{ color: "#1a1a2e" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8a8a9a" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1a1a2e" }] },
+  { featureType: "administrative.land_parcel", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ color: "#3a3a5c" }] },
+  { featureType: "administrative.province", elementType: "geometry.stroke", stylers: [{ color: "#2a2a4a" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#c0c0d0" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "road", stylers: [{ visibility: "off" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#252540" }, { visibility: "simplified" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2d2d50" }, { visibility: "simplified" }] },
+  { featureType: "road", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1a2b" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4a5568" }] },
+]
+
+// ── SVG icons ───────────────────────────────────────────────────────────────
+
+function createStationIcon(color: string, size: number): string {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
       <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 1}" fill="${color}" stroke="white" stroke-width="2.5"/>
@@ -49,7 +89,6 @@ function createStationIcon(
   )}`
 }
 
-// Train icon SVG for live position
 function createTrainIcon(): string {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
@@ -60,7 +99,22 @@ function createTrainIcon(): string {
   )}`
 }
 
-function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?: LivePosition | null }) {
+// ── Theme-aware style applier ───────────────────────────────────────────────
+
+function ThemeStyler({ isDark }: { isDark: boolean }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!map) return
+    map.setOptions({ styles: isDark ? CLEAN_DARK_STYLE : CLEAN_LIGHT_STYLE })
+  }, [map, isDark])
+
+  return null
+}
+
+// ── Route renderer ──────────────────────────────────────────────────────────
+
+function RouteRenderer({ tripId, livePosition, isDark }: { tripId: number; livePosition?: LivePosition | null; isDark: boolean }) {
   const map = useMap()
   const mapsLib = useMapsLibrary("maps")
 
@@ -72,7 +126,7 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
   const { data: pathData } = useQuery({
     queryKey: ["trip-path", tripId],
     queryFn: () => railwayApi.getTripPath(tripId),
-    staleTime: 60 * 60 * 1000, // 1 hour
+    staleTime: 60 * 60 * 1000,
     retry: 1,
   })
 
@@ -100,7 +154,6 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
   useEffect(() => {
     if (!map || !mapsLib || !pathData?.path?.length) return
 
-    // Clean only polyline, not markers
     if (polylineRef.current) {
       polylineRef.current.setMap(null)
       polylineRef.current = null
@@ -113,8 +166,8 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
 
     const polyline = new google.maps.Polyline({
       path,
-      strokeColor: "#2563eb",
-      strokeOpacity: 0.85,
+      strokeColor: isDark ? "#60a5fa" : "#2563eb",
+      strokeOpacity: 0.9,
       strokeWeight: 4,
       geodesic: true,
       map,
@@ -132,17 +185,15 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
         polylineRef.current = null
       }
     }
-  }, [map, mapsLib, pathData])
+  }, [map, mapsLib, pathData, isDark])
 
   // Draw station markers
   useEffect(() => {
     if (!map || !mapsLib || !stationsData?.stations?.length) return
 
-    // Clear old markers
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current = []
 
-    // Shared InfoWindow
     if (!infoWindowRef.current) {
       infoWindowRef.current = new google.maps.InfoWindow()
     }
@@ -153,7 +204,7 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
     const isLast = (i: number) => i === stations.length - 1
 
     stations.forEach((station: TripStationPoint, i: number) => {
-      const color = isFirst(i) ? "#16a34a" : isLast(i) ? "#dc2626" : "#2563eb"
+      const color = isFirst(i) ? "#16a34a" : isLast(i) ? "#dc2626" : isDark ? "#60a5fa" : "#2563eb"
       const size = isFirst(i) || isLast(i) ? 28 : 18
 
       const marker = new google.maps.Marker({
@@ -168,15 +219,20 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
         zIndex: isFirst(i) || isLast(i) ? 10 : 5,
       })
 
+      const bgColor = isDark ? "#1e1e2f" : "#fff"
+      const textColor = isDark ? "#e0e0e0" : "#333"
+      const subColor = isDark ? "#9ca3af" : "#666"
+      const mutedColor = isDark ? "#6b7280" : "#888"
+
       marker.addListener("click", () => {
         infoWindow.setContent(`
-          <div style="font-family:sans-serif;direction:rtl;text-align:right;padding:4px 2px;min-width:140px;">
+          <div style="font-family:sans-serif;direction:rtl;text-align:right;padding:6px 4px;min-width:150px;background:${bgColor};color:${textColor};border-radius:6px;">
             <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${station.name_ar}</div>
-            <div style="color:#666;font-size:12px;">${station.name_en}</div>
+            <div style="color:${subColor};font-size:12px;">${station.name_en}</div>
             <div style="margin-top:6px;font-size:13px;">
-              <span style="color:#888;">الترتيب:</span> ${station.order}
+              <span style="color:${mutedColor};">الترتيب:</span> ${station.order}
               &nbsp;&nbsp;
-              <span style="color:#888;">الوقت:</span> ${station.time_ar}
+              <span style="color:${mutedColor};">الوقت:</span> ${station.time_ar}
             </div>
           </div>
         `)
@@ -190,13 +246,12 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
       markersRef.current.forEach((m) => m.setMap(null))
       markersRef.current = []
     }
-  }, [map, mapsLib, stationsData])
+  }, [map, mapsLib, stationsData, isDark])
 
   // Draw/update live train position marker
   useEffect(() => {
     if (!map || !mapsLib) return
     if (!livePosition || (livePosition.lat === 0 && livePosition.lng === 0)) {
-      // Remove marker if no live position
       if (trainMarkerRef.current) {
         trainMarkerRef.current.setMap(null)
         trainMarkerRef.current = null
@@ -207,11 +262,9 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
     const pos = { lat: livePosition.lat, lng: livePosition.lng }
 
     if (trainMarkerRef.current) {
-      // Update existing marker position smoothly
       trainMarkerRef.current.setPosition(pos)
       trainMarkerRef.current.setTitle(`القطار — ${livePosition.speed.toFixed(0)} كم/س`)
     } else {
-      // Create new train marker
       trainMarkerRef.current = new google.maps.Marker({
         map,
         position: pos,
@@ -240,7 +293,12 @@ function RouteRenderer({ tripId, livePosition }: { tripId: number; livePosition?
   return null
 }
 
+// ── Main map components ─────────────────────────────────────────────────────
+
 export function TrainRouteMap({ tripId, className, livePosition }: TrainRouteMapProps) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
+
   const { data: pathData, isLoading: pathLoading, error: pathError } = useQuery({
     queryKey: ["trip-path", tripId],
     queryFn: () => railwayApi.getTripPath(tripId),
@@ -292,8 +350,10 @@ export function TrainRouteMap({ tripId, className, livePosition }: TrainRouteMap
         mapTypeControl={false}
         streetViewControl={false}
         fullscreenControl={true}
+        styles={isDark ? CLEAN_DARK_STYLE : CLEAN_LIGHT_STYLE}
       >
-        <RouteRenderer tripId={tripId} livePosition={livePosition} />
+        <ThemeStyler isDark={isDark} />
+        <RouteRenderer tripId={tripId} livePosition={livePosition} isDark={isDark} />
       </Map>
     </APIProvider>
   )
@@ -304,7 +364,6 @@ export function TrainRouteMap({ tripId, className, livePosition }: TrainRouteMap
  * Resolves tripId automatically from trainNumber if not provided.
  */
 export function LiveTrainMap({ tripId, trainNumber, className, livePosition }: LiveTrainMapProps) {
-  // Fetch trips by train number to resolve tripId if not provided
   const { data: trips, isLoading: tripsLoading } = useQuery({
     queryKey: ["train-trips", trainNumber],
     queryFn: () => tripsApi.getByTrainNumber(trainNumber),
