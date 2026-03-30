@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { tripsApi } from "@/lib/api/trips"
-import { Trip, TripStop } from "@/types"
+import { Trip } from "@/types"
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Clock, MapPin } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Clock, MapPin, Map as MapIcon, List } from "lucide-react"
+import { TrainRouteMap } from "./train-route-map"
 
 interface TrainStopsDialogProps {
   open: boolean
@@ -34,15 +36,20 @@ export function TrainStopsDialog({
   trainNumber,
   trainName,
 }: TrainStopsDialogProps) {
+  const [selectedTripId, setSelectedTripId] = useState<number | null>(null)
+
   const { data: trips, isLoading, error } = useQuery({
     queryKey: ["train-trips", trainNumber],
     queryFn: () => tripsApi.getByTrainNumber(trainNumber),
     enabled: open && !!trainNumber,
   })
 
+  // Auto-select the first trip for map display
+  const activeTripId = selectedTripId ?? trips?.[0]?.id ?? null
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />
@@ -66,78 +73,32 @@ export function TrainStopsDialog({
         )}
 
         {trips && trips.length > 0 && (
-          <div className="space-y-6">
-            {trips.map((trip, tripIndex) => (
-              <div key={trip.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      رحلة {tripIndex + 1}: {trip.from_station_ar} → {trip.to_station_ar}
-                    </h3>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        المغادرة: {trip.departure_ar}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        الوصول: {trip.arrival_ar}
-                      </span>
-                      <span>المدة: {trip.duration_ar}</span>
-                    </div>
-                  </div>
-                  <div className="text-left">
-                    <Badge variant="outline">
-                      {trip.stops_count} محطة
-                    </Badge>
-                    <div className="text-sm text-muted-foreground mt-1">
-                      {trip.type_ar}
-                    </div>
-                  </div>
-                </div>
-
-                {trip.stops && trip.stops.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-right w-16">#</TableHead>
-                        <TableHead className="text-right">المحطة</TableHead>
-                        <TableHead className="text-right">الوقت</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {trip.stops
-                        .sort((a, b) => a.stop_order - b.stop_order)
-                        .map((stop) => (
-                          <TableRow key={stop.id}>
-                            <TableCell className="text-center font-mono">
-                              {stop.stop_order}
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{stop.station_ar}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {stop.station_en}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-mono">{stop.time_ar}</span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    لا توجد بيانات وقفات لهذه الرحلة
-                  </div>
-                )}
+          <div className="space-y-4">
+            {/* Trip selector if multiple trips */}
+            {trips.length > 1 && (
+              <div className="flex gap-2 flex-wrap">
+                {trips.map((trip, i) => (
+                  <button
+                    key={trip.id}
+                    onClick={() => setSelectedTripId(trip.id)}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      activeTripId === trip.id
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-border hover:bg-accent"
+                    }`}
+                  >
+                    رحلة {i + 1}: {trip.from_station_ar} → {trip.to_station_ar}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Active trip content */}
+            {trips
+              .filter((t) => t.id === activeTripId)
+              .map((trip) => (
+                <TripDetail key={trip.id} trip={trip} />
+              ))}
           </div>
         )}
 
@@ -148,5 +109,125 @@ export function TrainStopsDialog({
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function TripDetail({ trip }: { trip: Trip }) {
+  return (
+    <div className="space-y-4">
+      {/* Trip header */}
+      <div className="flex items-center justify-between border rounded-lg p-4 bg-muted/30">
+        <div>
+          <h3 className="text-lg font-semibold">
+            {trip.from_station_ar} → {trip.to_station_ar}
+          </h3>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+            <span className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              المغادرة: {trip.departure_ar}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              الوصول: {trip.arrival_ar}
+            </span>
+            <span>المدة: {trip.duration_ar}</span>
+          </div>
+        </div>
+        <div className="text-left">
+          <Badge variant="outline">{trip.stops_count} محطة</Badge>
+          <div className="text-sm text-muted-foreground mt-1">{trip.type_ar}</div>
+        </div>
+      </div>
+
+      {/* Map + Stops side by side */}
+      <Tabs defaultValue="map" dir="rtl">
+        <TabsList className="grid w-full grid-cols-2 max-w-xs">
+          <TabsTrigger value="map" className="flex items-center gap-1.5">
+            <MapIcon className="h-4 w-4" />
+            الخريطة
+          </TabsTrigger>
+          <TabsTrigger value="stops" className="flex items-center gap-1.5">
+            <List className="h-4 w-4" />
+            المحطات
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="map" className="mt-3">
+          <TrainRouteMap
+            tripId={trip.id}
+            className="w-full h-[450px] rounded-lg overflow-hidden border"
+          />
+          {/* Station legend */}
+          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground justify-center">
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-green-600 border border-white" />
+              محطة الانطلاق
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-blue-600 border border-white" />
+              محطة وسطى
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-red-600 border border-white" />
+              محطة الوصول
+            </span>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="stops" className="mt-3">
+          {trip.stops && trip.stops.length > 0 ? (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right w-16">#</TableHead>
+                    <TableHead className="text-right">المحطة</TableHead>
+                    <TableHead className="text-right">الوقت</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {trip.stops
+                    .sort((a, b) => a.stop_order - b.stop_order)
+                    .map((stop, i) => (
+                      <TableRow
+                        key={stop.id}
+                        className={
+                          i === 0
+                            ? "bg-green-50 dark:bg-green-950/20"
+                            : i === trip.stops.length - 1
+                              ? "bg-red-50 dark:bg-red-950/20"
+                              : ""
+                        }
+                      >
+                        <TableCell className="text-center font-mono text-sm">
+                          {stop.stop_order}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{stop.station_ar}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {stop.station_en}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-mono">{stop.time_ar}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              لا توجد بيانات وقفات لهذه الرحلة
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }
