@@ -64,6 +64,35 @@ export function AdminNavbar() {
 
   const unreadCount = alertsData?.unread_count ?? 0
   const alerts = alertsData?.items ?? []
+  // null = first load not yet seen (avoids false notification on page load)
+  const prevUnreadRef = useRef<number | null>(null)
+
+  // Request browser notification permission on mount
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission()
+    }
+  }, [])
+
+  // Show browser notification only when unread count *increases* after first load
+  useEffect(() => {
+    if (!alertsData) return          // query not yet returned
+    const prev = prevUnreadRef.current
+    if (prev !== null && unreadCount > prev) {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        const newest = alerts.find((a) => !a.is_read)
+        if (newest) {
+          new Notification(newest.title, {
+            body: newest.body,
+            icon: "/favicon.ico",
+            dir: "rtl",
+            tag: `admin-alert-${newest.id}`,
+          })
+        }
+      }
+    }
+    prevUnreadRef.current = unreadCount
+  }, [alertsData, unreadCount, alerts])
 
   // Close dropdown on outside click
   useEffect(() => {
