@@ -17,6 +17,7 @@ import {
   HeadsetIcon,
   Smartphone,
   Shield,
+  ShieldAlert,
   FileText,
   UserX,
   ExternalLink,
@@ -78,6 +79,12 @@ const sidebarItems: SidebarItem[] = [
     title: "الدعم والتواصل",
     href: "/admin/support",
     icon: HeadsetIcon,
+    minLevel: "fulladmin",
+  },
+  {
+    title: "السجل الأمني",
+    href: "/admin/audit",
+    icon: ShieldAlert,
     minLevel: "fulladmin",
   },
   {

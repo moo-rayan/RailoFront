@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "سياسة الخصوصية | TrainLiveEG",
+  title: "سياسة الخصوصية | Railo Egypt",
 }
 
 export default function PrivacyPolicyPage() {
@@ -17,7 +17,7 @@ export default function PrivacyPolicyPage() {
         </div>
         <hr className="mb-8" />
         <div className="space-y-1 text-sm leading-7 [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_ul]:mr-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_p]:mb-3">
-          <p>نحن في TrainLiveEG نحترم خصوصيتك ونلتزم بحماية بياناتك الشخصية. توضح هذه السياسة كيفية جمع واستخدام وحماية المعلومات التي نحصل عليها من خلال استخدامك للتطبيق.</p>
+          <p>نحن في Railo Egypt نحترم خصوصيتك ونلتزم بحماية بياناتك الشخصية. توضح هذه السياسة كيفية جمع واستخدام وحماية المعلومات التي نحصل عليها من خلال استخدامك للتطبيق.</p>
 
           <h2>1. البيانات التي نجمعها</h2>
           <ul>

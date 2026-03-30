@@ -1,12 +1,12 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "الأسئلة الشائعة | TrainLiveEG",
+  title: "الأسئلة الشائعة | Railo Egypt",
 }
 
 const faqs = [
   {
-    q: "ما هو تطبيق TrainLiveEG؟",
+    q: "ما هو تطبيق Railo Egypt",
     a: "تطبيق لتتبع قطارات مصر في الوقت الحقيقي. يعتمد على مساهمات المستخدمين الذين يشاركون مواقعهم أثناء ركوب القطار لعرض موقع القطار الحي على الخريطة لباقي المستخدمين.",
   },
   {

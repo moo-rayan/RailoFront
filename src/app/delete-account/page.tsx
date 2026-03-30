@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "حذف الحساب | TrainLiveEG",
+  title: "حذف الحساب | Railo Egypt",
 }
 
 export default function DeleteAccountPage() {
@@ -13,7 +13,7 @@ export default function DeleteAccountPage() {
             <svg className="h-7 w-7 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </div>
           <h1 className="text-2xl font-bold">حذف الحساب</h1>
-          <p className="mt-2 text-sm text-muted-foreground">طلب حذف حسابك في تطبيق TrainLive Egypt</p>
+          <p className="mt-2 text-sm text-muted-foreground">طلب حذف حسابك في تطبيق Railo Egypt</p>
         </div>
         <hr className="mb-8" />
         <div className="space-y-1 text-sm leading-7 [&_h2]:mt-6 [&_h2]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_ul]:mr-4 [&_ul]:list-disc [&_ul]:space-y-1 [&_p]:mb-3">
@@ -51,7 +51,7 @@ export default function DeleteAccountPage() {
 
           <div className="mt-4 flex justify-center">
             <a
-              href={`${process.env.NEXT_PUBLIC_API_URL || 'https://api.trainliveeg.com/api/v1'}/account/delete-page`}
+              href={`${process.env.NEXT_PUBLIC_API_URL || 'https://railoeg.com/api/v1'}/account/delete-page`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-xl bg-destructive px-6 py-3 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 transition-colors"
@@ -62,7 +62,7 @@ export default function DeleteAccountPage() {
           </div>
 
           <h2>5. التواصل معنا</h2>
-          <p>إذا واجهت أي مشكلة في عملية حذف الحساب، يمكنك التواصل معنا عبر البريد الإلكتروني: <a href="mailto:support@trainliveeg.com" className="text-primary underline">support@trainliveeg.com</a></p>
+          <p>إذا واجهت أي مشكلة في عملية حذف الحساب، يمكنك التواصل معنا عبر البريد الإلكتروني: <a href="mailto:support@railoeg.com" className="text-primary underline">support@railoeg.com</a></p>              
         </div>
       </div>
     </div>

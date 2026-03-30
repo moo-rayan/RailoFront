@@ -1,3 +1,4 @@
+export type { AuditLogEntry, AuditLogsResponse, AuditStats, TopIpEntry, TopIpsResponse } from './audit'
 export type { Station, StationListResponse, CreateStationInput, UpdateStationInput } from './station'
 export type { Train, TrainListResponse, CreateTrainInput, UpdateTrainInput } from './train'
 export type { Trip, TripStop, TripListResponse } from './trip'
