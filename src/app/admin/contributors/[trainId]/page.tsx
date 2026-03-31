@@ -26,6 +26,7 @@ import {
   Hourglass,
   Settings2,
   Route,
+  Headphones,
 } from "lucide-react"
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
@@ -258,7 +259,7 @@ export default function TrainDetailPage() {
       <div className="space-y-6">
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">المساهمين</CardTitle>
@@ -268,6 +269,17 @@ export default function TrainDetailPage() {
             <div className="text-2xl font-bold">
               {room.contributors_count}
               <span className="text-sm font-normal text-muted-foreground">/{room.max_active_contributors}</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">المستمعين</CardTitle>
+            <Headphones className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {room.listeners_count || 0}
             </div>
           </CardContent>
         </Card>
