@@ -20,6 +20,7 @@ import {
   Hourglass,
   Zap,
   ChevronLeft,
+  Headphones,
 } from "lucide-react"
 
 export default function ContributorsPage() {
@@ -35,6 +36,7 @@ export default function ContributorsPage() {
   const rooms = roomsData?.rooms ?? []
   const totalContributors = roomsData?.total_contributors ?? 0
   const totalWaiting = roomsData?.total_waiting ?? 0
+  const totalListeners = rooms.reduce((sum, room) => sum + (room.listeners_count || 0), 0)
 
   const filteredRooms = rooms.filter((room: LiveRoom) =>
     room.train_id.toLowerCase().includes(searchQuery.toLowerCase())
@@ -67,7 +69,7 @@ export default function ContributorsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">غرف نشطة</CardTitle>
@@ -84,6 +86,15 @@ export default function ContributorsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalContributors}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">مستمعين</CardTitle>
+            <Headphones className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{totalListeners}</div>
           </CardContent>
         </Card>
         <Card>
@@ -179,6 +190,13 @@ export default function ContributorsPage() {
                     <span className="font-medium">{room.contributors_count}</span>
                     <span className="text-muted-foreground">مساهم</span>
                   </div>
+                  {room.listeners_count > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Headphones className="h-3.5 w-3.5 text-blue-500" />
+                      <span className="font-medium text-blue-600">{room.listeners_count}</span>
+                      <span className="text-muted-foreground">مستمع</span>
+                    </div>
+                  )}
                   {room.waiting_count > 0 && (
                     <div className="flex items-center gap-1">
                       <Hourglass className="h-3.5 w-3.5 text-muted-foreground" />
