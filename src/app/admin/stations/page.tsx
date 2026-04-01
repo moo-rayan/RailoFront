@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Search, Edit, Trash2, MapPin } from "lucide-react"
+import { Plus, Search, Edit, Trash2, MapPin, Filter } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { StationFormDialog } from "@/components/admin/station-form-dialog"
 import {
@@ -31,7 +31,9 @@ import {
 import { toast } from "sonner"
 
 export default function StationsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
+  const [nameFilter, setNameFilter] = useState("")
+  const [latFilter, setLatFilter] = useState("")
+  const [lngFilter, setLngFilter] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedStation, setSelectedStation] = useState<Station | undefined>()
@@ -72,12 +74,28 @@ export default function StationsPage() {
     },
   })
 
-  // Filter stations
-  const filteredStations = stations.filter(
-    (station) =>
-      station.name_ar.includes(searchQuery) ||
-      station.name_en.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Filter stations by name and coordinates
+  const filteredStations = stations.filter((station) => {
+    // Name filter (Arabic or English)
+    const nameMatch =
+      nameFilter === "" ||
+      station.name_ar.includes(nameFilter) ||
+      station.name_en.toLowerCase().includes(nameFilter.toLowerCase())
+
+    // Latitude filter
+    const latMatch =
+      latFilter === "" ||
+      (station.latitude != null &&
+        station.latitude.toString().includes(latFilter))
+
+    // Longitude filter
+    const lngMatch =
+      lngFilter === "" ||
+      (station.longitude != null &&
+        station.longitude.toString().includes(lngFilter))
+
+    return nameMatch && latMatch && lngMatch
+  })
 
   const handleCreate = () => {
     setSelectedStation(undefined)
@@ -121,16 +139,62 @@ export default function StationsPage() {
       {/* Search & Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="البحث عن محطة..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-9"
-              />
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Filter className="h-4 w-4" />
+              <span>فلترة البحث</span>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Name filter */}
+              <div className="relative">
+                <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="البحث بالاسم (عربي/إنجليزي)..."
+                  value={nameFilter}
+                  onChange={(e) => setNameFilter(e.target.value)}
+                  className="pr-9"
+                />
+              </div>
+              {/* Latitude filter */}
+              <div className="relative">
+                <MapPin className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="خط العرض (Latitude)..."
+                  value={latFilter}
+                  onChange={(e) => setLatFilter(e.target.value)}
+                  className="pr-9"
+                  type="number"
+                  step="any"
+                />
+              </div>
+              {/* Longitude filter */}
+              <div className="relative">
+                <MapPin className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="خط الطول (Longitude)..."
+                  value={lngFilter}
+                  onChange={(e) => setLngFilter(e.target.value)}
+                  className="pr-9"
+                  type="number"
+                  step="any"
+                />
+              </div>
+            </div>
+            {(nameFilter || latFilter || lngFilter) && (
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setNameFilter("")
+                    setLatFilter("")
+                    setLngFilter("")
+                  }}
+                >
+                  مسح الفلاتر
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
