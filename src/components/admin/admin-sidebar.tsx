@@ -23,8 +23,12 @@ import {
   UsersRound,
   ExternalLink,
   LogOut,
+  Menu,
 } from "lucide-react"
 import type { AdminLevel } from "@/lib/stores/auth-store"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import { useState } from "react"
 
 interface SidebarItem {
   title: string
@@ -113,7 +117,11 @@ function hasAccess(itemLevel: AdminLevel, userLevel: AdminLevel): boolean {
   return itemLevel === "monitor"
 }
 
-export function AdminSidebar() {
+interface SidebarContentProps {
+  onNavigate?: () => void
+}
+
+function SidebarContent({ onNavigate }: SidebarContentProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { admin, clearAuth } = useAuthStore()
@@ -135,17 +143,18 @@ export function AdminSidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
         <Train className="h-6 w-6 text-primary ml-2" />
-        <span className="text-xl font-bold">EGRailway</span>
+        <span className="text-xl font-bold">Railo Egypt</span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {visibleItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/")
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -166,6 +175,7 @@ export function AdminSidebar() {
         <Link
           href="/privacy"
           target="_blank"
+          onClick={onNavigate}
           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <Shield className="h-3.5 w-3.5" />
@@ -175,6 +185,7 @@ export function AdminSidebar() {
         <Link
           href="/terms"
           target="_blank"
+          onClick={onNavigate}
           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
         >
           <FileText className="h-3.5 w-3.5" />
@@ -184,6 +195,7 @@ export function AdminSidebar() {
         <Link
           href="/delete-account"
           target="_blank"
+          onClick={onNavigate}
           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
         >
           <UserX className="h-3.5 w-3.5" />
@@ -216,9 +228,33 @@ export function AdminSidebar() {
         </button>
         <div className="text-xs text-muted-foreground">
           <p className="font-medium">الإصدار 1.0.0</p>
-          <p className="mt-1">© 2026 EGRailway</p>
+          <p className="mt-1">© 2026 Railo Egypt</p>
         </div>
       </div>
     </div>
   )
 }
+
+export function AdminSidebar() {
+  return <SidebarContent />
+}
+
+export function MobileSidebarTrigger() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger>
+        <Button variant="outline" size="icon" className="lg:hidden">
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">فتح القائمة</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="p-0 w-64" showCloseButton={false}>
+        <SheetTitle className="sr-only">قائمة التنقل</SheetTitle>
+        <SidebarContent onNavigate={() => setOpen(false)} />
+      </SheetContent>
+    </Sheet>
+  )
+}
+

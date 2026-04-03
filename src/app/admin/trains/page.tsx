@@ -125,16 +125,16 @@ export default function TrainsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">إدارة القطارات</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl md:text-3xl font-bold">إدارة القطارات</h1>
+          <p className="text-muted-foreground mt-2 text-sm md:text-base">
             {trainsData?.total ?? 0} قطار في النظام
           </p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} className="w-full sm:w-auto">
           <Plus className="ml-2 h-4 w-4" />
-          إضافة قطار جديد
+          إضافة قطار
         </Button>
       </div>
 
@@ -158,7 +158,7 @@ export default function TrainsPage() {
       {/* Trains Table */}
       <Card>
         <CardHeader>
-          <CardTitle>قائمة القطارات</CardTitle>
+          <CardTitle className="text-base md:text-lg">قائمة القطارات</CardTitle>
         </CardHeader>
         <CardContent>
           {error ? (
@@ -171,86 +171,91 @@ export default function TrainsPage() {
               جاري التحميل...
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">رقم القطار</TableHead>
-                  <TableHead className="text-right">النوع</TableHead>
-                  <TableHead className="text-right">من</TableHead>
-                  <TableHead className="text-right">إلى</TableHead>
-                  <TableHead className="text-right">عدد المحطات</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right">الإجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTrains.length === 0 ? (
+            <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      لا توجد قطارات
-                    </TableCell>
+                    <TableHead className="text-right">رقم القطار</TableHead>
+                    <TableHead className="text-right">النوع</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">من</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">إلى</TableHead>
+                    <TableHead className="text-right hidden lg:table-cell">عدد المحطات</TableHead>
+                    <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">الإجراءات</TableHead>
                   </TableRow>
-                ) : (
-                  filteredTrains.map((train) => (
-                    <TableRow key={train.id}>
-                      <TableCell className="font-medium font-mono">
-                        <div className="flex items-center gap-2">
-                          <TrainIcon className="h-4 w-4 text-primary" />
-                          {train.train_id}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getTrainTypeBadge(train.type_ar)}>
-                          {train.type_ar}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {train.start_station_ar}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {train.end_station_ar}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-muted-foreground">
-                          {train.stops_count} محطة
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={train.is_active ? "default" : "secondary"}>
-                          {train.is_active ? "نشط" : "غير نشط"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleViewStops(train)}
-                            title="عرض وقفات القطار"
-                          >
-                            <MapPin className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(train)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(train)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredTrains.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        لا توجد قطارات
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredTrains.map((train) => (
+                      <TableRow key={train.id}>
+                        <TableCell className="font-medium font-mono">
+                          <div className="flex items-center gap-2">
+                            <TrainIcon className="h-4 w-4 text-primary shrink-0" />
+                            {train.train_id}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getTrainTypeBadge(train.type_ar)} className="whitespace-nowrap">
+                            {train.type_ar}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium hidden sm:table-cell">
+                          {train.start_station_ar}
+                        </TableCell>
+                        <TableCell className="font-medium hidden md:table-cell">
+                          {train.end_station_ar}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <span className="text-sm text-muted-foreground">
+                            {train.stops_count} محطة
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={train.is_active ? "default" : "secondary"} className="whitespace-nowrap">
+                            {train.is_active ? "نشط" : "غير نشط"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 md:gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleViewStops(train)}
+                              title="عرض وقفات القطار"
+                              className="h-8 w-8"
+                            >
+                              <MapPin className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(train)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteClick(train)}
+                              className="h-8 w-8"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

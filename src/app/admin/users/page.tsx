@@ -366,13 +366,13 @@ export default function UsersPage() {
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-7 w-7 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
+            <Users className="h-6 w-6 md:h-7 md:w-7 text-primary" />
             المستخدمين
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm md:text-base text-muted-foreground mt-1">
             إجمالي {total} مستخدم مسجل
           </p>
         </div>

@@ -62,63 +62,63 @@ export default function ContributorsPage() {
     <div className="space-y-6" dir="rtl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">التتبع الحي</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-2xl md:text-3xl font-bold">التتبع الحي</h1>
+        <p className="text-muted-foreground mt-1 text-sm md:text-base">
           إدارة غرف التتبع والمساهمين في الوقت الحقيقي
         </p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">غرف نشطة</CardTitle>
-            <Radio className="h-4 w-4 text-primary" />
+            <CardTitle className="text-xs md:text-sm font-medium">غرف نشطة</CardTitle>
+            <Radio className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{rooms.length}</div>
+            <div className="text-xl md:text-2xl font-bold text-primary">{rooms.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">مساهمين</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs md:text-sm font-medium">مساهمين</CardTitle>
+            <Users className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalContributors}</div>
+            <div className="text-xl md:text-2xl font-bold">{totalContributors}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">مستمعين</CardTitle>
-            <Headphones className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-xs md:text-sm font-medium">مستمعين</CardTitle>
+            <Headphones className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalListeners}</div>
+            <div className="text-xl md:text-2xl font-bold text-blue-600">{totalListeners}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">في الانتظار</CardTitle>
-            <Hourglass className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs md:text-sm font-medium">في الانتظار</CardTitle>
+            <Hourglass className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalWaiting}</div>
+            <div className="text-xl md:text-2xl font-bold">{totalWaiting}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">بيانات حية</CardTitle>
-            <Zap className="h-4 w-4 text-green-500" />
+            <CardTitle className="text-xs md:text-sm font-medium">بيانات حية</CardTitle>
+            <Zap className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">تحديث كل 5 ثوانٍ</div>
+            <div className="text-xs md:text-sm text-muted-foreground">تحديث كل 5 ثوانٍ</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-sm">
+      <div className="relative w-full md:max-w-sm">
         <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="بحث برقم القطار..."

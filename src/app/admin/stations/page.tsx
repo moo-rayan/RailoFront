@@ -123,16 +123,16 @@ export default function StationsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">إدارة المحطات</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl md:text-3xl font-bold">إدارة المحطات</h1>
+          <p className="text-muted-foreground mt-2 text-sm md:text-base">
             {stationsData?.total ?? 0} محطة في النظام
           </p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} className="w-full sm:w-auto">
           <Plus className="ml-2 h-4 w-4" />
-          إضافة محطة جديدة
+          إضافة محطة
         </Button>
       </div>
 
@@ -202,7 +202,7 @@ export default function StationsPage() {
       {/* Stations Table */}
       <Card>
         <CardHeader>
-          <CardTitle>قائمة المحطات</CardTitle>
+          <CardTitle className="text-base md:text-lg">قائمة المحطات</CardTitle>
         </CardHeader>
         <CardContent>
           {error ? (
@@ -215,78 +215,82 @@ export default function StationsPage() {
               جاري التحميل...
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">#</TableHead>
-                  <TableHead className="text-right">الاسم بالعربي</TableHead>
-                  <TableHead className="text-right">الاسم بالإنجليزي</TableHead>
-                  <TableHead className="text-right">الإحداثيات</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right">الإجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStations.length === 0 ? (
+            <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      لا توجد محطات
-                    </TableCell>
+                    <TableHead className="text-right w-12 hidden md:table-cell">#</TableHead>
+                    <TableHead className="text-right">الاسم بالعربي</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">الاسم بالإنجليزي</TableHead>
+                    <TableHead className="text-right hidden lg:table-cell">الإحداثيات</TableHead>
+                    <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">الإجراءات</TableHead>
                   </TableRow>
-                ) : (
-                  filteredStations.map((station) => (
-                    <TableRow key={station.id}>
-                      <TableCell className="text-muted-foreground font-mono">
-                        {station.id}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {station.name_ar}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {station.name_en}
-                      </TableCell>
-                      <TableCell>
-                        {station.latitude != null && station.longitude != null ? (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-accent" />
-                            <span className="text-sm text-muted-foreground font-mono">
-                              {station.latitude.toFixed(4)}, {station.longitude.toFixed(4)}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">
-                            غير متوفر
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={station.is_active ? "default" : "secondary"}>
-                          {station.is_active ? "نشط" : "غير نشط"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(station)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteClick(station)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredStations.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        لا توجد محطات
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredStations.map((station) => (
+                      <TableRow key={station.id}>
+                        <TableCell className="text-muted-foreground font-mono hidden md:table-cell">
+                          {station.id}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {station.name_ar}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground hidden sm:table-cell">
+                          {station.name_en}
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {station.latitude != null && station.longitude != null ? (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-accent shrink-0" />
+                              <span className="text-sm text-muted-foreground font-mono whitespace-nowrap">
+                                {station.latitude.toFixed(4)}, {station.longitude.toFixed(4)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              غير متوفر
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={station.is_active ? "default" : "secondary"} className="whitespace-nowrap">
+                            {station.is_active ? "نشط" : "غير نشط"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 md:gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(station)}
+                              className="h-8 w-8"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteClick(station)}
+                              className="h-8 w-8"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

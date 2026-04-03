@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
+import { MobileSidebarTrigger } from "@/components/admin/admin-sidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,12 +117,13 @@ export function AdminNavbar() {
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-      <div className="flex items-center gap-4">
-        <h1 className="text-xl font-semibold">لوحة التحكم</h1>
+    <header className="flex h-16 items-center justify-between border-b bg-card px-4 md:px-6">
+      <div className="flex items-center gap-3">
+        <MobileSidebarTrigger />
+        <h1 className="text-lg md:text-xl font-semibold">لوحة التحكم</h1>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3">
         {/* Notifications Bell */}
         <div className="relative" ref={dropdownRef}>
           <Button

@@ -19,7 +19,7 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "EGRailway Dashboard | لوحة تحكم السكك الحديدية المصرية",
+  title: "Railo Egypt Dashboard | لوحة تحكم السكك الحديدية المصرية",
   description: "Admin dashboard for managing Egyptian Railway system - trains, stations, and schedules",
 };
 
