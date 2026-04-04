@@ -51,4 +51,14 @@ export const dashboardApi = {
     const response = await apiClient.post('/live/admin/set-max-contributors', { train_id: trainId, max_active: maxActive });
     return response.data;
   },
+
+  suspendContributor: async (trainId: string, userId: string, reason: string = '', durationMinutes: number = 0) => {
+    const response = await apiClient.post('/live/admin/suspend', { train_id: trainId, user_id: userId, reason, duration_minutes: durationMinutes });
+    return response.data;
+  },
+
+  unsuspendContributor: async (trainId: string, userId: string) => {
+    const response = await apiClient.post('/live/admin/unsuspend', { train_id: trainId, user_id: userId });
+    return response.data;
+  },
 };

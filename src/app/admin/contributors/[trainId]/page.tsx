@@ -27,6 +27,8 @@ import {
   Settings2,
   Route,
   Headphones,
+  Pause,
+  Play,
 } from "lucide-react"
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
@@ -79,6 +81,8 @@ const eventLabels: Record<string, { label: string; color: string }> = {
   silent_disconnect: { label: "فصل تلقائي", color: "text-red-400" },
   waiting: { label: "قائمة انتظار", color: "text-purple-500" },
   promoted: { label: "ترقية", color: "text-emerald-600" },
+  suspend: { label: "إيقاف", color: "text-orange-600" },
+  unsuspend: { label: "إلغاء إيقاف", color: "text-green-600" },
 }
 
 // ── Main Component ───────────────────────────────────────────────────────────
@@ -178,6 +182,18 @@ export default function TrainDetailPage() {
   const setMaxMutation = useMutation({
     mutationFn: ({ trainId, maxActive }: { trainId: string; maxActive: number }) =>
       dashboardApi.setMaxContributors(trainId, maxActive),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
+  })
+
+  const suspendMutation = useMutation({
+    mutationFn: ({ trainId, userId }: { trainId: string; userId: string }) =>
+      dashboardApi.suspendContributor(trainId, userId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
+  })
+
+  const unsuspendMutation = useMutation({
+    mutationFn: ({ trainId, userId }: { trainId: string; userId: string }) =>
+      dashboardApi.unsuspendContributor(trainId, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
   })
 
@@ -450,6 +466,12 @@ export default function TrainDetailPage() {
                           ليدر
                         </Badge>
                       )}
+                      {c.is_suspended && (
+                        <Badge className="bg-orange-500 hover:bg-orange-600 text-[10px] h-5">
+                          <Pause className="h-2.5 w-2.5 ml-0.5" />
+                          مُعلق
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                       {(c.from_station || c.to_station) && (
@@ -476,6 +498,29 @@ export default function TrainDetailPage() {
                       >
                         <Crown className="h-3 w-3 text-amber-500" />
                         ليدر
+                      </Button>
+                    )}
+                    {c.is_suspended ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1 text-green-600 hover:text-green-700 hover:border-green-300"
+                        onClick={() => unsuspendMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
+                        disabled={unsuspendMutation.isPending}
+                      >
+                        <Play className="h-3 w-3" />
+                        إلغاء إيقاف
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1 text-orange-500 hover:text-orange-600 hover:border-orange-300"
+                        onClick={() => suspendMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
+                        disabled={suspendMutation.isPending}
+                      >
+                        <Pause className="h-3 w-3" />
+                        إيقاف
                       </Button>
                     )}
                     <Button

@@ -9,6 +9,7 @@ export interface RoomContributor {
   is_leader: boolean;
   is_captain: boolean;
   is_stale: boolean;
+  is_suspended: boolean;
   from_station: string;
   to_station: string;
   trip_distance_km: number;
