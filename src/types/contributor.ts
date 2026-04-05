@@ -43,6 +43,7 @@ export interface LiveRoom {
   leader_id: string | null;
   contributors: RoomContributor[];
   waiting_list: WaitingContributor[];
+  empty_since: number | null;
 }
 
 export interface DashboardRoomsResponse {

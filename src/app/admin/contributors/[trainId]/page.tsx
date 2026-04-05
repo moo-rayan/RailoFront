@@ -98,6 +98,8 @@ export default function TrainDetailPage() {
   const [banDialog, setBanDialog] = useState<{ open: boolean; userId: string }>({ open: false, userId: "" })
   const [activeTab, setActiveTab] = useState<"events" | "feed" | "bans">("events")
   const lastRoomRef = useRef<LiveRoom | null>(null)
+  const missCountRef = useRef(0) // consecutive polls where room is missing
+  const _STALE_THRESHOLD = 3     // show stale banner after 3 consecutive misses (15s)
 
   // Fetch all rooms, find current train
   const { data: roomsData, isLoading } = useQuery({
@@ -135,11 +137,16 @@ export default function TrainDetailPage() {
   )
 
   // Cache last known room data so the page stays visible when all participants leave
+  // Use consecutive-miss debounce to prevent stale banner flickering
   if (liveRoom) {
     lastRoomRef.current = liveRoom
+    missCountRef.current = 0
+  } else if (roomsData) {
+    // Only count a miss when we actually got a response (not during loading)
+    missCountRef.current += 1
   }
   const room = liveRoom ?? lastRoomRef.current
-  const isStaleData = !liveRoom && !!lastRoomRef.current
+  const isStaleData = !liveRoom && !!lastRoomRef.current && missCountRef.current >= _STALE_THRESHOLD
   const logs = logsData?.logs ?? []
   const feed = feedData?.feed ?? []
   const bans = bansData?.bans ?? []
