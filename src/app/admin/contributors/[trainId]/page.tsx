@@ -31,6 +31,7 @@ import {
   Play,
   Bell,
   LogOut,
+  Trash2,
 } from "lucide-react"
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
@@ -242,6 +243,11 @@ export default function TrainDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
   })
 
+  const clearPositionMutation = useMutation({
+    mutationFn: (trainId: string) => dashboardApi.clearTrainPosition(trainId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
+  })
+
   // ── Loading / Not found ────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -408,8 +414,8 @@ export default function TrainDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Max contributors control */}
-      <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border">
+      {/* Admin controls */}
+      <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border flex-wrap">
         <Settings2 className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm">الحد الأقصى للمساهمين النشطين:</span>
         <div className="flex items-center gap-1">
@@ -433,6 +439,21 @@ export default function TrainDetailPage() {
             +
           </Button>
         </div>
+        <div className="h-5 w-px bg-border mx-1 hidden sm:block" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs text-red-500 hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/20"
+          onClick={() => {
+            if (confirm("هل أنت متأكد من حذف آخر إحداثيات هذا القطار من الكاش؟")) {
+              clearPositionMutation.mutate(room.train_id)
+            }
+          }}
+          disabled={clearPositionMutation.isPending}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          {clearPositionMutation.isPending ? "جاري الحذف..." : "حذف الإحداثيات"}
+        </Button>
       </div>
 
       {/* Leader bar */}

@@ -61,4 +61,9 @@ export const dashboardApi = {
     const response = await apiClient.post('/live/admin/unsuspend', { train_id: trainId, user_id: userId });
     return response.data;
   },
+
+  clearTrainPosition: async (trainId: string) => {
+    const response = await apiClient.delete(`/live/admin/clear-position/${trainId}`);
+    return response.data;
+  },
 };
