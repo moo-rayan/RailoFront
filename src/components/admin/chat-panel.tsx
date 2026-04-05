@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
+import { Input } from "@/components/ui/input"
 import {
   MessageCircle,
   AlertTriangle,
@@ -20,6 +21,8 @@ import {
   Users,
   Wifi,
   WifiOff,
+  Send,
+  Shield,
 } from "lucide-react"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -69,6 +72,34 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
   const [chatEnabled, setChatEnabled] = useState(true)
   const [onlineUsers, setOnlineUsers] = useState(0)
   const [activeSection, setActiveSection] = useState<"chat" | "reports" | "bans">("chat")
+  const [adminInput, setAdminInput] = useState("")
+  const [isSending, setIsSending] = useState(false)
+  const lastMsgIdRef = useRef<string | null>(null)
+
+  // ── HTTP polling fallback (catches messages if WS drops) ──────────
+
+  const { data: pollData } = useQuery({
+    queryKey: ["chat-messages-poll", trainId],
+    queryFn: () => chatApi.getMessages(trainId, 50),
+    refetchInterval: wsConnected ? 15000 : 5000, // faster when WS is down
+    enabled: activeSection === "chat",
+  })
+
+  // Merge polled messages if WS missed any
+  useEffect(() => {
+    if (!pollData?.messages?.length) return
+    setMessages(prev => {
+      const existingIds = new Set(prev.map(m => m.id))
+      const newMsgs = pollData.messages.filter((m: ChatMessage) => !existingIds.has(m.id))
+      if (newMsgs.length === 0) return prev
+      // Merge and sort by timestamp
+      const merged = [...prev, ...newMsgs]
+      merged.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      return merged
+    })
+    if (pollData.chat_enabled !== undefined) setChatEnabled(pollData.chat_enabled)
+    if (pollData.online_users !== undefined) setOnlineUsers(pollData.online_users)
+  }, [pollData])
 
   // ── WebSocket connection ──────────────────────────────────────────────
 
@@ -93,7 +124,10 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
           setChatEnabled(data.data.chat_enabled ?? true)
           setOnlineUsers(data.data.online_users ?? 0)
         } else if (data.type === "chat_message") {
-          setMessages(prev => [...prev, data.data])
+          setMessages(prev => {
+            if (prev.some((m: ChatMessage) => m.id === data.data.id)) return prev
+            return [...prev, data.data]
+          })
         } else if (data.type === "system") {
           // System messages (chat enabled/disabled notifications)
           setMessages(prev => [...prev, {
@@ -211,6 +245,23 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
       queryClient.invalidateQueries({ queryKey: ["chat-bans"] })
     },
   })
+
+  // ── Send admin message ───────────────────────────────────────────────
+
+  const handleSendAdminMessage = useCallback(async () => {
+    const text = adminInput.trim()
+    if (!text || isSending) return
+    setIsSending(true)
+    try {
+      // Send via REST — handles storage + broadcast to all users & admin observers
+      await chatApi.sendAdminMessage(trainId, text, "المشرف")
+      setAdminInput("")
+    } catch (err) {
+      console.error("Failed to send admin message:", err)
+    } finally {
+      setIsSending(false)
+    }
+  }, [adminInput, isSending, trainId])
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -330,6 +381,26 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                         <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
                           {msg.text}
                         </div>
+                      ) : msg.type === "admin" || msg.is_admin ? (
+                        <div className="w-full flex gap-2 items-start p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                          <div className="h-7 w-7 shrink-0 mt-0.5 rounded-full bg-amber-500 flex items-center justify-center">
+                            <Shield className="h-3.5 w-3.5 text-white" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                                {msg.user_name || "المشرف"}
+                              </span>
+                              <Badge className="bg-amber-500 hover:bg-amber-600 text-[9px] h-4 px-1">
+                                مشرف
+                              </Badge>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                {formatChatTime(msg.timestamp)}
+                              </span>
+                            </div>
+                            <p className="text-sm break-words font-medium text-amber-900 dark:text-amber-200">{msg.text}</p>
+                          </div>
+                        </div>
                       ) : (
                         <>
                           <Avatar className="h-7 w-7 shrink-0 mt-0.5">
@@ -361,6 +432,32 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                   ))
                 )}
                 <div ref={messagesEndRef} />
+              </div>
+              {/* Admin message input */}
+              <div className="border-t p-3 flex items-center gap-2">
+                <Input
+                  value={adminInput}
+                  onChange={(e) => setAdminInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && adminInput.trim()) {
+                      e.preventDefault()
+                      handleSendAdminMessage()
+                    }
+                  }}
+                  placeholder="اكتب رسالة كمشرف..."
+                  className="flex-1 text-sm"
+                  disabled={isSending}
+                  dir="rtl"
+                />
+                <Button
+                  size="sm"
+                  className="h-9 gap-1.5 bg-amber-500 hover:bg-amber-600"
+                  onClick={handleSendAdminMessage}
+                  disabled={isSending || !adminInput.trim()}
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  إرسال
+                </Button>
               </div>
             </div>
           )}

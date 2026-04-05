@@ -6,8 +6,9 @@ export interface ChatMessage {
   user_name: string;
   user_avatar: string;
   text: string;
-  type: string; // normal | lost_item | found_item
+  type: string; // normal | lost_item | found_item | admin
   is_pinned: boolean;
+  is_admin?: boolean;
   timestamp: string;
 }
 
@@ -106,6 +107,14 @@ export const chatApi = {
       params: { active_only: activeOnly, limit },
     });
     return response.data as { total: number; bans: ChatBan[] };
+  },
+
+  sendAdminMessage: async (trainId: string, text: string, adminName = 'المشرف') => {
+    const response = await apiClient.post(`/admin/chat/${trainId}/send`, {
+      text,
+      admin_name: adminName,
+    });
+    return response.data as { ok: boolean; message?: ChatMessage };
   },
 
   /** Build admin WebSocket URL for real-time chat observation (still uses legacy admin_key for WS) */
