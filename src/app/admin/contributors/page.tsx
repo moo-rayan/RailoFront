@@ -28,19 +28,45 @@ export default function ContributorsPage() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
 
+  // Client-side session cache: remember rooms that had contributors during this session
+  const cachedRoomsRef = useRef<Record<string, LiveRoom>>({})
+
   const { data: roomsData, isLoading } = useQuery({
     queryKey: ["live-rooms"],
     queryFn: () => dashboardApi.getRooms(),
     refetchInterval: 5000,
   })
 
-  // Rooms come pre-merged from backend (active + 12h historical)
-  // Sort: active contributors first, then by train_id
-  const rooms = (roomsData?.rooms ?? []).slice().sort((a, b) => {
-    // Active (has contributors) first
+  // Merge API rooms with client-side cache
+  const apiRooms = roomsData?.rooms ?? []
+  const activeIds = new Set<string>()
+
+  // Update cache with latest API data
+  for (const room of apiRooms) {
+    activeIds.add(room.train_id)
+    cachedRoomsRef.current[room.train_id] = room
+  }
+
+  // For rooms not in current API response but in cache, mark as historical
+  for (const tid of Object.keys(cachedRoomsRef.current)) {
+    if (!activeIds.has(tid)) {
+      cachedRoomsRef.current[tid] = {
+        ...cachedRoomsRef.current[tid],
+        contributors_count: 0,
+        contributors: [],
+        waiting_count: 0,
+        waiting_list: [],
+        listeners_count: 0,
+        status: "ended",
+        is_historical: true,
+      }
+    }
+  }
+
+  // Sort: active contributors first → active rooms → historical
+  const rooms = Object.values(cachedRoomsRef.current).sort((a, b) => {
     if (a.contributors_count > 0 && b.contributors_count === 0) return -1
     if (a.contributors_count === 0 && b.contributors_count > 0) return 1
-    // Historical last
     if (!a.is_historical && b.is_historical) return -1
     if (a.is_historical && !b.is_historical) return 1
     return a.train_id.localeCompare(b.train_id)
