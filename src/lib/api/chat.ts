@@ -117,6 +117,16 @@ export const chatApi = {
     return response.data as { ok: boolean; message?: ChatMessage };
   },
 
+  deleteMessage: async (trainId: string, messageId: string) => {
+    const response = await apiClient.delete(`/admin/chat/${trainId}/messages/${messageId}`);
+    return response.data as { ok: boolean; message_id: string };
+  },
+
+  clearChat: async (trainId: string) => {
+    const response = await apiClient.delete(`/admin/chat/${trainId}/clear`);
+    return response.data as { ok: boolean; train_id: string };
+  },
+
   /** Build admin WebSocket URL for real-time chat observation (still uses legacy admin_key for WS) */
   getAdminWsUrl: (trainId: string): string => {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';

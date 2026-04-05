@@ -23,6 +23,7 @@ import {
   WifiOff,
   Send,
   Shield,
+  Trash2,
 } from "lucide-react"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -140,6 +141,10 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
             is_pinned: false,
             timestamp: data.data.timestamp,
           }])
+        } else if (data.type === "message_deleted") {
+          setMessages(prev => prev.filter(m => m.id !== data.data.message_id))
+        } else if (data.type === "chat_cleared") {
+          setMessages([])
         }
       } catch {
         // ignore parse errors
@@ -246,6 +251,21 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
     },
   })
 
+  const deleteMsgMutation = useMutation({
+    mutationFn: (messageId: string) => chatApi.deleteMessage(trainId, messageId),
+    onSuccess: (_, messageId) => {
+      setMessages(prev => prev.filter(m => m.id !== messageId))
+    },
+  })
+
+  const clearChatMutation = useMutation({
+    mutationFn: () => chatApi.clearChat(trainId),
+    onSuccess: () => {
+      setMessages([])
+      queryClient.invalidateQueries({ queryKey: ["chat-messages-poll", trainId] })
+    },
+  })
+
   // ── Send admin message ───────────────────────────────────────────────
 
   const handleSendAdminMessage = useCallback(async () => {
@@ -296,6 +316,21 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                 <Users className="h-3.5 w-3.5" />
                 {onlineUsers}
               </div>
+              {/* Clear chat */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                disabled={clearChatMutation.isPending || messages.length === 0}
+                onClick={() => {
+                  if (confirm("هل أنت متأكد من مسح جميع رسائل الشات؟ لا يمكن التراجع عن هذا الإجراء.")) {
+                    clearChatMutation.mutate()
+                  }
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5 ml-1" />
+                {clearChatMutation.isPending ? "جاري المسح..." : "مسح الشات"}
+              </Button>
               {/* Chat toggle */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">
@@ -382,7 +417,7 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                           {msg.text}
                         </div>
                       ) : msg.type === "admin" || msg.is_admin ? (
-                        <div className="w-full flex gap-2 items-start p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                        <div className="group w-full flex gap-2 items-start p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 relative">
                           <div className="h-7 w-7 shrink-0 mt-0.5 rounded-full bg-amber-500 flex items-center justify-center">
                             <Shield className="h-3.5 w-3.5 text-white" />
                           </div>
@@ -400,10 +435,26 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                             </div>
                             <p className="text-sm break-words font-medium text-amber-900 dark:text-amber-200">{msg.text}</p>
                           </div>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1.5 left-1.5 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600"
+                            title="حذف الرسالة"
+                            onClick={() => deleteMsgMutation.mutate(msg.id)}
+                            disabled={deleteMsgMutation.isPending}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
                         </div>
                       ) : (
-                        <>
-                          <Avatar className="h-7 w-7 shrink-0 mt-0.5">
+                        <div className="group flex gap-2 items-start relative">
+                          <Avatar
+                            className="h-7 w-7 shrink-0 mt-0.5 cursor-pointer ring-2 ring-transparent hover:ring-red-400 transition-all"
+                            title={`حظر ${msg.user_name || "مجهول"}`}
+                            onClick={() => {
+                              if (msg.user_id && msg.user_id !== "system" && confirm(`هل تريد حظر "${msg.user_name || "مجهول"}" من الشات؟`)) {
+                                banMutation.mutate({ userId: msg.user_id, reason: "محظور بواسطة المشرف" })
+                              }
+                            }}
+                          >
                             {msg.user_avatar ? <AvatarImage src={msg.user_avatar} /> : null}
                             <AvatarFallback className="text-[10px]">
                               {msg.user_name?.charAt(0) || "?"}
@@ -426,7 +477,15 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                             </div>
                             <p className="text-sm break-words">{msg.text}</p>
                           </div>
-                        </>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 left-0 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600"
+                            title="حذف الرسالة"
+                            onClick={() => deleteMsgMutation.mutate(msg.id)}
+                            disabled={deleteMsgMutation.isPending}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))
