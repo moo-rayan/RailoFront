@@ -21,6 +21,7 @@ import {
   Zap,
   ChevronLeft,
   Headphones,
+  Bell,
 } from "lucide-react"
 
 export default function ContributorsPage() {
@@ -224,12 +225,19 @@ export default function ContributorsPage() {
                   <div className="flex items-center justify-between pt-1">
                     <AvatarGroup>
                       {room.contributors.slice(0, 5).map((c) => (
-                        <Avatar key={c.user_id} size="sm">
-                          {c.avatar_url ? <AvatarImage src={c.avatar_url} /> : null}
-                          <AvatarFallback>
-                            {c.display_name?.charAt(0) || c.user_id.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div key={c.user_id} className="relative">
+                          <Avatar size="sm">
+                            {c.avatar_url ? <AvatarImage src={c.avatar_url} /> : null}
+                            <AvatarFallback>
+                              {c.display_name?.charAt(0) || c.user_id.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {c.is_silent && (
+                            <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 ring-2 ring-white dark:ring-gray-900" title="مساهمة صامتة">
+                              <Bell className="h-2 w-2 text-white" />
+                            </span>
+                          )}
+                        </div>
                       ))}
                     </AvatarGroup>
                     <ChevronLeft className="h-4 w-4 text-muted-foreground" />

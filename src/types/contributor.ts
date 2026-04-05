@@ -8,6 +8,7 @@ export interface RoomContributor {
   last_update: number;
   is_leader: boolean;
   is_captain: boolean;
+  is_silent: boolean;
   is_stale: boolean;
   is_suspended: boolean;
   from_station: string;

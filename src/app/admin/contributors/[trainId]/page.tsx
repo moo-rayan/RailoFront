@@ -29,6 +29,7 @@ import {
   Headphones,
   Pause,
   Play,
+  Bell,
 } from "lucide-react"
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
@@ -464,6 +465,12 @@ export default function TrainDetailPage() {
                         <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] h-5">
                           <Crown className="h-2.5 w-2.5 ml-0.5" />
                           ليدر
+                        </Badge>
+                      )}
+                      {c.is_silent && (
+                        <Badge className="bg-blue-500 hover:bg-blue-600 text-[10px] h-5">
+                          <Bell className="h-2.5 w-2.5 ml-0.5" />
+                          مساهمة صامتة
                         </Badge>
                       )}
                       {c.is_suspended && (
