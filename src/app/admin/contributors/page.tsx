@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { dashboardApi } from "@/lib/api/contributors"
@@ -24,16 +24,9 @@ import {
   Bell,
 } from "lucide-react"
 
-// Grace period (ms) to keep showing a room card after it disappears from API
-const _ROOM_CARD_GRACE_MS = 60_000 // 60 seconds
-
 export default function ContributorsPage() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-
-  // Track when each room was last seen in the API response
-  const roomLastSeenRef = useRef<Record<string, number>>({})
-  const cachedRoomsRef = useRef<Record<string, LiveRoom>>({})
 
   const { data: roomsData, isLoading } = useQuery({
     queryKey: ["live-rooms"],
@@ -41,23 +34,17 @@ export default function ContributorsPage() {
     refetchInterval: 5000,
   })
 
-  // Build stable rooms list: merge live API data with grace-period cache
-  const apiRooms = roomsData?.rooms ?? []
-  const now = Date.now()
-  // Update cache with fresh data
-  for (const room of apiRooms) {
-    roomLastSeenRef.current[room.train_id] = now
-    cachedRoomsRef.current[room.train_id] = room
-  }
-  // Evict rooms past grace period
-  for (const tid of Object.keys(cachedRoomsRef.current)) {
-    const lastSeen = roomLastSeenRef.current[tid] ?? 0
-    if (now - lastSeen > _ROOM_CARD_GRACE_MS) {
-      delete cachedRoomsRef.current[tid]
-      delete roomLastSeenRef.current[tid]
-    }
-  }
-  const rooms = Object.values(cachedRoomsRef.current)
+  // Rooms come pre-merged from backend (active + 12h historical)
+  // Sort: active contributors first, then by train_id
+  const rooms = (roomsData?.rooms ?? []).slice().sort((a, b) => {
+    // Active (has contributors) first
+    if (a.contributors_count > 0 && b.contributors_count === 0) return -1
+    if (a.contributors_count === 0 && b.contributors_count > 0) return 1
+    // Historical last
+    if (!a.is_historical && b.is_historical) return -1
+    if (a.is_historical && !b.is_historical) return 1
+    return a.train_id.localeCompare(b.train_id)
+  })
   const totalContributors = roomsData?.total_contributors ?? 0
   const totalWaiting = roomsData?.total_waiting ?? 0
   const totalListeners = rooms.reduce((sum, room) => sum + (room.listeners_count || 0), 0)
@@ -70,6 +57,7 @@ export default function ContributorsPage() {
     switch (s) {
       case "moving": return "متحرك"
       case "stopped": return "متوقف"
+      case "ended": return "انتهت المساهمة"
       default: return "في الانتظار"
     }
   }
@@ -78,6 +66,7 @@ export default function ContributorsPage() {
     switch (s) {
       case "moving": return "bg-green-500"
       case "stopped": return "bg-yellow-500"
+      case "ended": return "bg-gray-500"
       default: return "bg-gray-400"
     }
   }
@@ -182,7 +171,9 @@ export default function ContributorsPage() {
           {filteredRooms.map((room: LiveRoom) => (
             <Card
               key={room.train_id}
-              className="cursor-pointer transition-all hover:shadow-md hover:border-primary/30"
+              className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/30 ${
+                room.is_historical ? "opacity-60 border-dashed" : ""
+              }`}
               onClick={() => router.push(`/admin/contributors/${room.train_id}`)}
             >
               <CardHeader className="pb-3">

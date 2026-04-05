@@ -46,6 +46,7 @@ export interface LiveRoom {
   contributors: RoomContributor[];
   waiting_list: WaitingContributor[];
   empty_since: number | null;
+  is_historical?: boolean;
 }
 
 export interface DashboardRoomsResponse {

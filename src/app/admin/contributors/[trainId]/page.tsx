@@ -71,6 +71,7 @@ const statusMap: Record<string, { label: string; color: string }> = {
   moving: { label: "متحرك", color: "bg-green-500" },
   stopped: { label: "متوقف", color: "bg-yellow-500" },
   waiting: { label: "في الانتظار", color: "bg-gray-400" },
+  ended: { label: "انتهت المساهمة", color: "bg-gray-500" },
 }
 
 const eventLabels: Record<string, { label: string; color: string }> = {
