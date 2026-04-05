@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { dashboardApi } from "@/lib/api/contributors"
@@ -30,6 +30,7 @@ import {
   Pause,
   Play,
   Bell,
+  LogOut,
 } from "lucide-react"
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
@@ -147,6 +148,42 @@ export default function TrainDetailPage() {
   }
   const room = liveRoom ?? lastRoomRef.current
   const isStaleData = !liveRoom && !!lastRoomRef.current && missCountRef.current >= _STALE_THRESHOLD
+
+  // Cache contributors: keep departed contributors visible with "left" badge
+  const prevContributorsRef = useRef<Map<string, RoomContributor>>(new Map())
+  const _LEFT_CACHE_S = 300 // keep left contributors for 5 minutes
+
+  const mergedContributors = useMemo(() => {
+    const activeIds = new Set<string>()
+    const nowSec = Date.now() / 1000
+    const result: RoomContributor[] = []
+
+    // Active contributors from current API response
+    for (const c of room?.contributors ?? []) {
+      activeIds.add(c.user_id)
+      const entry: RoomContributor = { ...c, is_left: false, left_at: undefined }
+      prevContributorsRef.current.set(c.user_id, entry)
+      result.push(entry)
+    }
+
+    // Previously seen contributors who are no longer active
+    for (const [uid, cached] of prevContributorsRef.current) {
+      if (activeIds.has(uid)) continue
+      if (!cached.is_left) {
+        cached.is_left = true
+        cached.left_at = nowSec
+      }
+      // Expire after _LEFT_CACHE_S
+      if (nowSec - (cached.left_at ?? 0) > _LEFT_CACHE_S) {
+        prevContributorsRef.current.delete(uid)
+        continue
+      }
+      result.push(cached)
+    }
+
+    return result
+  }, [room?.contributors])
+
   const logs = logsData?.logs ?? []
   const feed = feedData?.feed ?? []
   const bans = bansData?.bans ?? []
@@ -429,22 +466,23 @@ export default function TrainDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {room.contributors.length === 0 ? (
+          {mergedContributors.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               لا يوجد مساهمون حالياً
             </div>
           ) : (
             <div className="space-y-3">
-              {room.contributors.map((c: RoomContributor) => (
+              {mergedContributors.map((c: RoomContributor) => (
                 <div
                   key={c.user_id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border ${
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-opacity duration-300 ${
+                    c.is_left ? "bg-gray-50 dark:bg-gray-900/50 border-dashed border-gray-300 dark:border-gray-700 opacity-50" :
                     c.is_stale ? "bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-700 opacity-60" :
                     c.is_captain ? "bg-yellow-50/50 dark:bg-yellow-950/10 border-yellow-300 dark:border-yellow-800" :
                     c.is_leader ? "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800" : "bg-card"
                   }`}
                 >
-                  <Avatar>
+                  <Avatar className={c.is_left ? "grayscale" : ""}>
                     {c.avatar_url ? <AvatarImage src={c.avatar_url} /> : null}
                     <AvatarFallback>
                       {c.display_name?.charAt(0) || c.user_id.charAt(0).toUpperCase()}
@@ -453,10 +491,16 @@ export default function TrainDetailPage() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">
+                      <span className={`font-medium truncate ${c.is_left ? "text-muted-foreground" : ""}`}>
                         {c.display_name || "مستخدم مجهول"}
                       </span>
-                      {c.is_stale && (
+                      {c.is_left && (
+                        <Badge variant="outline" className="text-[10px] h-5 text-gray-400 border-gray-300 dark:border-gray-600">
+                          <LogOut className="h-2.5 w-2.5 ml-0.5" />
+                          غادر
+                        </Badge>
+                      )}
+                      {c.is_stale && !c.is_left && (
                         <Badge variant="outline" className="text-[10px] h-5 text-gray-400 border-gray-300">
                           <Clock className="h-2.5 w-2.5 ml-0.5" />
                           قديم
@@ -468,7 +512,7 @@ export default function TrainDetailPage() {
                           كابتن
                         </Badge>
                       )}
-                      {c.is_leader && (
+                      {c.is_leader && !c.is_left && (
                         <Badge className="bg-amber-500 hover:bg-amber-600 text-[10px] h-5">
                           <Crown className="h-2.5 w-2.5 ml-0.5" />
                           ليدر
@@ -480,7 +524,7 @@ export default function TrainDetailPage() {
                           مساهمة صامتة
                         </Badge>
                       )}
-                      {c.is_suspended && (
+                      {c.is_suspended && !c.is_left && (
                         <Badge className="bg-orange-500 hover:bg-orange-600 text-[10px] h-5">
                           <Pause className="h-2.5 w-2.5 ml-0.5" />
                           مُعلق
@@ -496,57 +540,59 @@ export default function TrainDetailPage() {
                         </span>
                       )}
                       <span className="font-mono">{c.lat.toFixed(4)}, {c.lng.toFixed(4)}</span>
-                      {c.speed > 0 && <span>{c.speed.toFixed(0)} كم/س</span>}
-                      <span>{formatTimestamp(c.last_update)}</span>
+                      {c.speed > 0 && !c.is_left && <span>{c.speed.toFixed(0)} كم/س</span>}
+                      <span>{c.is_left ? formatTimestamp(c.left_at ?? c.last_update) : formatTimestamp(c.last_update)}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!c.is_leader && (
+                  {!c.is_left && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!c.is_leader && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1"
+                          onClick={() => leaderMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
+                          disabled={leaderMutation.isPending}
+                        >
+                          <Crown className="h-3 w-3 text-amber-500" />
+                          ليدر
+                        </Button>
+                      )}
+                      {c.is_suspended ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1 text-green-600 hover:text-green-700 hover:border-green-300"
+                          onClick={() => unsuspendMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
+                          disabled={unsuspendMutation.isPending}
+                        >
+                          <Play className="h-3 w-3" />
+                          إلغاء إيقاف
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs gap-1 text-orange-500 hover:text-orange-600 hover:border-orange-300"
+                          onClick={() => suspendMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
+                          disabled={suspendMutation.isPending}
+                        >
+                          <Pause className="h-3 w-3" />
+                          إيقاف
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs gap-1"
-                        onClick={() => leaderMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
-                        disabled={leaderMutation.isPending}
+                        className="h-8 text-xs gap-1 text-red-500 hover:text-red-600 hover:border-red-300"
+                        onClick={() => setBanDialog({ open: true, userId: c.user_id })}
                       >
-                        <Crown className="h-3 w-3 text-amber-500" />
-                        ليدر
+                        <Ban className="h-3 w-3" />
+                        حظر
                       </Button>
-                    )}
-                    {c.is_suspended ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs gap-1 text-green-600 hover:text-green-700 hover:border-green-300"
-                        onClick={() => unsuspendMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
-                        disabled={unsuspendMutation.isPending}
-                      >
-                        <Play className="h-3 w-3" />
-                        إلغاء إيقاف
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs gap-1 text-orange-500 hover:text-orange-600 hover:border-orange-300"
-                        onClick={() => suspendMutation.mutate({ trainId: room.train_id, userId: c.user_id })}
-                        disabled={suspendMutation.isPending}
-                      >
-                        <Pause className="h-3 w-3" />
-                        إيقاف
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs gap-1 text-red-500 hover:text-red-600 hover:border-red-300"
-                      onClick={() => setBanDialog({ open: true, userId: c.user_id })}
-                    >
-                      <Ban className="h-3 w-3" />
-                      حظر
-                    </Button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

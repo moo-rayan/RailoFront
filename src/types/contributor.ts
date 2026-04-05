@@ -14,6 +14,8 @@ export interface RoomContributor {
   from_station: string;
   to_station: string;
   trip_distance_km: number;
+  is_left?: boolean;
+  left_at?: number;
 }
 
 export interface WaitingContributor {
