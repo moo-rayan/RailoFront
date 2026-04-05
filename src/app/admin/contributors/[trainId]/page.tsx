@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { dashboardApi } from "@/lib/api/contributors"
 import type { LiveRoom, RoomContributor, WaitingContributor, RoomEvent, FeedEntry, BanInfo } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -109,14 +109,16 @@ export default function TrainDetailPage() {
     queryKey: ["live-rooms"],
     queryFn: () => dashboardApi.getRooms(),
     refetchInterval: 5000,
+    placeholderData: keepPreviousData,
   })
 
-  // Fetch logs
+  // Fetch logs — keep previous data to avoid flickering
   const { data: logsData } = useQuery({
     queryKey: ["room-logs", trainId],
     queryFn: () => dashboardApi.getRoomLogs(trainId),
     refetchInterval: 5000,
     enabled: !!trainId,
+    placeholderData: keepPreviousData,
   })
 
   // Fetch live feed
@@ -125,6 +127,7 @@ export default function TrainDetailPage() {
     queryFn: () => dashboardApi.getRoomFeed(trainId),
     refetchInterval: 3000,
     enabled: !!trainId && activeTab === "feed",
+    placeholderData: keepPreviousData,
   })
 
   // Fetch bans
@@ -186,7 +189,14 @@ export default function TrainDetailPage() {
     return result
   }, [room?.contributors])
 
-  const logs = logsData?.logs ?? []
+  // Cache logs: never show empty if we had data before
+  const cachedLogsRef = useRef<RoomEvent[]>([])
+  const rawLogs = logsData?.logs ?? []
+  if (rawLogs.length > 0) {
+    cachedLogsRef.current = rawLogs
+  }
+  const logs = cachedLogsRef.current
+
   const feed = feedData?.feed ?? []
   const bans = bansData?.bans ?? []
 
