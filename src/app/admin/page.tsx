@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Train, Calendar, Radio } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UserStatsSection } from "@/components/admin/user-stats-section"
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({
@@ -82,6 +83,9 @@ export default function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      {/* User Statistics */}
+      <UserStatsSection />
 
       {/* Live Tracking Summary */}
       <Card>

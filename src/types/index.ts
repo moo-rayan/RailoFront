@@ -3,7 +3,7 @@ export type { Station, StationListResponse, CreateStationInput, UpdateStationInp
 export type { Train, TrainListResponse, CreateTrainInput, UpdateTrainInput } from './train'
 export type { Trip, TripStop, TripListResponse } from './trip'
 export type { DashboardStats, DashboardRoomsResponse, LiveRoom, RoomContributor, WaitingContributor, RoomEvent, RoomLogsResponse, FeedEntry, FeedResponse, BanInfo, BanListResponse } from './contributor'
-export type { UserProfile, UserBanInfo, UsersListResponse, UsersListParams } from './user'
+export type { UserProfile, UserBanInfo, UsersListResponse, UsersListParams, UserStatsResponse, UserStatsDailyEntry, UserStatsWeeklyEntry } from './user'
 
 export interface ApiResponse<T> {
   success: boolean;

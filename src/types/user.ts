@@ -34,6 +34,24 @@ export interface UsersListResponse {
   total_pages: number;
 }
 
+export interface UserStatsDailyEntry {
+  date: string;
+  count: number;
+}
+
+export interface UserStatsWeeklyEntry {
+  week: string;
+  count: number;
+}
+
+export interface UserStatsResponse {
+  total_users: number;
+  weekly_new: number;
+  monthly_new: number;
+  daily: UserStatsDailyEntry[];
+  weekly: UserStatsWeeklyEntry[];
+}
+
 export interface UsersListParams {
   page?: number;
   limit?: number;

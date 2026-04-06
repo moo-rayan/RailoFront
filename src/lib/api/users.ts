@@ -1,7 +1,12 @@
 import { apiClient } from './client';
-import type { UsersListResponse, UsersListParams, UserProfile } from '@/types';
+import type { UsersListResponse, UsersListParams, UserProfile, UserStatsResponse } from '@/types';
 
 export const usersApi = {
+  getStats: async (): Promise<UserStatsResponse> => {
+    const response = await apiClient.get('/admin/users/stats');
+    return response.data;
+  },
+
   list: async (params: UsersListParams = {}): Promise<UsersListResponse> => {
     const response = await apiClient.get('/admin/users', { params });
     return response.data;
