@@ -76,6 +76,7 @@ const trainTypes = [
   { ar: "إسباني", en: "Spanish" },
   { ar: "إسباني مطور", en: "Spanish Enhanced" },
   { ar: "فرنساوي مطور", en: "French Enhanced" },
+  { ar: "فرنساوي - VIP برايم", en: "French - VIP Prime" },
   { ar: "ثانية مكيفة فاخرة", en: "Premium AC" },
 ]
 
