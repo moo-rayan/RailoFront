@@ -36,6 +36,7 @@ import {
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
 import { LiveTrainMap } from "@/components/admin/train-route-map"
+import { useAuthStore } from "@/lib/stores/auth-store"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,7 @@ export default function TrainDetailPage() {
   const trainId = params.trainId as string
   const feedEndRef = useRef<HTMLDivElement>(null)
 
+  const isMonitor = useAuthStore((s) => s.admin?.admin_level === "monitor")
   const [banDialog, setBanDialog] = useState<{ open: boolean; userId: string }>({ open: false, userId: "" })
   const [activeTab, setActiveTab] = useState<"events" | "feed" | "bans">("events")
   const lastRoomRef = useRef<LiveRoom | null>(null)
@@ -474,7 +476,7 @@ export default function TrainDetailPage() {
           <span className="text-sm font-medium">
             الليدر الحالي:{" "}
             <span className="font-mono">
-              {room.contributors.find(c => c.user_id === room.leader_id)?.display_name || room.leader_id.slice(0, 8) + "..."}
+              {isMonitor ? room.leader_id.slice(0, 8) + "..." : (room.contributors.find(c => c.user_id === room.leader_id)?.display_name || room.leader_id.slice(0, 8) + "...")}
             </span>
           </span>
           <Button
@@ -515,16 +517,16 @@ export default function TrainDetailPage() {
                   }`}
                 >
                   <Avatar className={c.is_left ? "grayscale" : ""}>
-                    {c.avatar_url ? <AvatarImage src={c.avatar_url} /> : null}
+                    {!isMonitor && c.avatar_url ? <AvatarImage src={c.avatar_url} /> : null}
                     <AvatarFallback>
-                      {c.display_name?.charAt(0) || c.user_id.charAt(0).toUpperCase()}
+                      {isMonitor ? "U" : (c.display_name?.charAt(0) || c.user_id.charAt(0).toUpperCase())}
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`font-medium truncate ${c.is_left ? "text-muted-foreground" : ""}`}>
-                        {c.display_name || "مستخدم مجهول"}
+                        {isMonitor ? c.user_id.slice(0, 8) + "..." : (c.display_name || "مستخدم مجهول")}
                       </span>
                       {c.is_left && (
                         <Badge variant="outline" className="text-[10px] h-5 text-gray-400 border-gray-300 dark:border-gray-600">
@@ -652,14 +654,14 @@ export default function TrainDetailPage() {
                     #{idx + 1}
                   </div>
                   <Avatar>
-                    {w.avatar_url ? <AvatarImage src={w.avatar_url} /> : null}
+                    {!isMonitor && w.avatar_url ? <AvatarImage src={w.avatar_url} /> : null}
                     <AvatarFallback>
-                      {w.display_name?.charAt(0) || w.user_id.charAt(0).toUpperCase()}
+                      {isMonitor ? "U" : (w.display_name?.charAt(0) || w.user_id.charAt(0).toUpperCase())}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <span className="font-medium truncate block">
-                      {w.display_name || "مستخدم مجهول"}
+                      {isMonitor ? w.user_id.slice(0, 8) + "..." : (w.display_name || "مستخدم مجهول")}
                     </span>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                       {(w.from_station || w.to_station) && (
@@ -791,7 +793,7 @@ export default function TrainDetailPage() {
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
                         )}
                         <span className="font-medium min-w-[80px] truncate">
-                          {entry.display_name}
+                          {isMonitor ? entry.user_id.slice(0, 8) + "..." : entry.display_name}
                         </span>
                         <span className="text-muted-foreground">
                           {entry.lat.toFixed(5)}, {entry.lng.toFixed(5)}

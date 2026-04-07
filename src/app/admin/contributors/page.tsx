@@ -23,8 +23,10 @@ import {
   Headphones,
   Bell,
 } from "lucide-react"
+import { useAuthStore } from "@/lib/stores/auth-store"
 
 export default function ContributorsPage() {
+  const isMonitor = useAuthStore((s) => s.admin?.admin_level === "monitor")
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -267,9 +269,9 @@ export default function ContributorsPage() {
                       {room.contributors.slice(0, 5).map((c) => (
                         <div key={c.user_id} className="relative">
                           <Avatar size="sm">
-                            {c.avatar_url ? <AvatarImage src={c.avatar_url} /> : null}
+                            {!isMonitor && c.avatar_url ? <AvatarImage src={c.avatar_url} /> : null}
                             <AvatarFallback>
-                              {c.display_name?.charAt(0) || c.user_id.charAt(0).toUpperCase()}
+                              {isMonitor ? "U" : (c.display_name?.charAt(0) || c.user_id.charAt(0).toUpperCase())}
                             </AvatarFallback>
                           </Avatar>
                           {c.is_silent && (
