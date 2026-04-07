@@ -57,10 +57,13 @@ interface TrainFormDialogProps {
 }
 
 const trainTypes = [
+  { ar: "محسن", en: "Improved" },
+  { ar: "مكيف روسي", en: "AC Russian" },
   { ar: "روسي", en: "Russian" },
   { ar: "مكيف", en: "AC" },
-  { ar: "مكيف روسي", en: "AC Russian" },
   { ar: "خاص", en: "VIP" },
+  { ar: "نوم", en: "Sleep" },
+  { ar: "مختلط", en: "Mix" },
   { ar: "تالجو", en: "Talgo" },
   { ar: "إسباني", en: "Spanish" },
 ]
@@ -189,7 +192,11 @@ export function TrainFormDialog({
                   <FormItem>
                     <FormLabel>النوع (عربي) *</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(val) => {
+                        field.onChange(val)
+                        const match = trainTypes.find((t) => t.ar === val)
+                        if (match) form.setValue("type_en", match.en)
+                      }}
                       value={field.value}
                     >
                       <FormControl>
@@ -217,7 +224,11 @@ export function TrainFormDialog({
                   <FormItem>
                     <FormLabel>النوع (English) *</FormLabel>
                     <Select
-                      onValueChange={field.onChange}
+                      onValueChange={(val) => {
+                        field.onChange(val)
+                        const match = trainTypes.find((t) => t.en === val)
+                        if (match) form.setValue("type_ar", match.ar)
+                      }}
                       value={field.value}
                     >
                       <FormControl>
