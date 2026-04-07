@@ -30,6 +30,7 @@ import {
   Search,
   Ban,
   ShieldCheck,
+  Shield,
   Crown,
   ChevronRight,
   ChevronLeft,
@@ -39,6 +40,7 @@ import {
   Star,
   Filter,
   X,
+  Eye,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -176,6 +178,7 @@ function UserDetailDialog({
   onBan,
   onUnban,
   onToggleCaptain,
+  onToggleAdmin,
 }: {
   user: UserProfile | null
   open: boolean
@@ -183,6 +186,7 @@ function UserDetailDialog({
   onBan: (user: UserProfile) => void
   onUnban: (userId: string) => void
   onToggleCaptain: (userId: string, isCaptain: boolean) => void
+  onToggleAdmin: (userId: string, isAdmin: boolean, adminLevel?: 'fulladmin' | 'monitor') => void
 }) {
   if (!user) return null
 
@@ -269,6 +273,66 @@ function UserDetailDialog({
             </div>
           </div>
 
+          {/* Admin Role Management */}
+          <div className="space-y-2 pt-2">
+            <p className="text-sm font-medium">صلاحيات الإدارة</p>
+            <div className="flex gap-2">
+              {user.is_admin && user.admin_level === "fulladmin" ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  onClick={() => { onToggleAdmin(user.id, true, 'monitor'); onClose() }}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  تخفيض لمراقب
+                </Button>
+              ) : user.is_admin && user.admin_level === "monitor" ? (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={() => { onToggleAdmin(user.id, true, 'fulladmin'); onClose() }}
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                    ترقية لمسؤول كامل
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5 text-destructive hover:text-destructive"
+                    onClick={() => { onToggleAdmin(user.id, false); onClose() }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    إزالة الإدارة
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={() => { onToggleAdmin(user.id, true, 'monitor'); onClose() }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    تعيين مراقب
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5"
+                    onClick={() => { onToggleAdmin(user.id, true, 'fulladmin'); onClose() }}
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                    تعيين مسؤول كامل
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Actions */}
           <div className="flex gap-2 pt-2">
             {user.is_banned ? (
@@ -344,6 +408,25 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] })
     },
     onError: () => toast.error("فشلت العملية"),
+  })
+
+  const adminMutation = useMutation({
+    mutationFn: ({ userId, isAdmin, adminLevel }: { userId: string; isAdmin: boolean; adminLevel?: 'fulladmin' | 'monitor' }) =>
+      usersApi.toggleAdmin(userId, isAdmin, adminLevel),
+    onSuccess: (_, vars) => {
+      if (!vars.isAdmin) {
+        toast.success("تمت إزالة صلاحيات الإدارة")
+      } else if (vars.adminLevel === 'fulladmin') {
+        toast.success("تم تعيين المستخدم كمسؤول كامل")
+      } else {
+        toast.success("تم تعيين المستخدم كمراقب")
+      }
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] })
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail || "فشلت العملية"
+      toast.error(msg)
+    },
   })
 
   const handleSearch = () => {
@@ -622,6 +705,7 @@ export default function UsersPage() {
         onBan={(user) => setBanDialog({ open: true, user })}
         onUnban={(userId) => unbanMutation.mutate(userId)}
         onToggleCaptain={(userId, isCaptain) => captainMutation.mutate({ userId, isCaptain })}
+        onToggleAdmin={(userId, isAdmin, adminLevel) => adminMutation.mutate({ userId, isAdmin, adminLevel })}
       />
     </div>
   )

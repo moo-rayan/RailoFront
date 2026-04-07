@@ -40,4 +40,13 @@ export const usersApi = {
     });
     return response.data;
   },
+
+  toggleAdmin: async (userId: string, isAdmin: boolean, adminLevel?: 'fulladmin' | 'monitor') => {
+    const response = await apiClient.post('/admin/users/toggle-admin', {
+      user_id: userId,
+      is_admin: isAdmin,
+      admin_level: isAdmin ? (adminLevel || 'monitor') : null,
+    });
+    return response.data;
+  },
 };
