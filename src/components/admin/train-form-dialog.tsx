@@ -69,6 +69,8 @@ const trainTypes = [
   { ar: "مكيف", en: "AC" },
   { ar: "VIP", en: "VIP" },
   { ar: "نوم", en: "Sleep" },
+  { ar: "نوم - جلوس", en: "Sleep - Seated" },
+  { ar: "نوم - VIP برايم", en: "Sleep - VIP Prime" },
   { ar: "مختلط", en: "Mix" },
   { ar: "تالجو", en: "Talgo" },
   { ar: "إسباني", en: "Spanish" },
