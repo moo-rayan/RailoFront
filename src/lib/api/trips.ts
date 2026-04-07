@@ -55,6 +55,11 @@ export const tripsApi = {
     return response.data;
   },
 
+  updateStop: async (tripId: number, stopId: number, data: { time_ar?: string; time_en?: string }): Promise<TripStop> => {
+    const response = await apiClient.patch(`/trips/${tripId}/stops/${stopId}`, data);
+    return response.data;
+  },
+
   removeStop: async (tripId: number, stopId: number): Promise<void> => {
     await apiClient.delete(`/trips/${tripId}/stops/${stopId}`);
   },

@@ -23,7 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check, Train } from "lucide-react"
+import { Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check, Train, Pencil } from "lucide-react"
 import { TrainRouteMap } from "./train-route-map"
 import { toast } from "sonner"
 
@@ -367,6 +367,111 @@ function AddStopForm({ trip, onSuccess }: { trip: Trip; onSuccess: () => void })
 
 // ── Trip Detail ───────────────────────────────────────────────────────────────
 
+/** Parse "5:30 ص" into { hhmm: "5:30", period: "ص" } */
+function parseStopTime(timeAr: string): { hhmm: string; period: "ص" | "م" } {
+  if (!timeAr?.trim()) return { hhmm: "", period: "ص" }
+  const parts = timeAr.trim().split(" ")
+  if (parts.length === 2) {
+    const p = parts[1] === "م" || parts[1] === "PM" || parts[1] === "pm" ? "م" : "ص"
+    return { hhmm: parts[0], period: p as "ص" | "م" }
+  }
+  return { hhmm: timeAr.trim(), period: "ص" }
+}
+
+function StopTimeCell({ stop, tripId }: { stop: TripStop; tripId: number }) {
+  const [editing, setEditing] = useState(false)
+  const parsed = parseStopTime(stop.time_ar)
+  const [hhmm, setHhmm] = useState(parsed.hhmm)
+  const [period, setPeriod] = useState<"ص" | "م">(parsed.period)
+  const queryClient = useQueryClient()
+
+  const updateMutation = useMutation({
+    mutationFn: () => {
+      const timeAr = hhmm.trim() ? `${hhmm.trim()} ${period}` : ""
+      const timeEn = hhmm.trim() ? `${hhmm.trim()} ${period === "ص" ? "AM" : "PM"}` : ""
+      return tripsApi.updateStop(tripId, stop.id, { time_ar: timeAr, time_en: timeEn })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["train-trips"] })
+      setEditing(false)
+      toast.success("تم تحديث الوقت")
+    },
+    onError: () => toast.error("فشل تحديث الوقت"),
+  })
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-1 group">
+        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="font-mono text-sm">{stop.time_ar}</span>
+        <button
+          className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-accent text-muted-foreground hover:text-foreground transition-all"
+          onClick={() => {
+            const p = parseStopTime(stop.time_ar)
+            setHhmm(p.hhmm)
+            setPeriod(p.period)
+            setEditing(true)
+          }}
+          title="تعديل الوقت"
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <Input
+        value={hhmm}
+        onChange={(e) => setHhmm(e.target.value)}
+        placeholder="5:30"
+        className="h-7 w-16 text-center text-xs px-1"
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") updateMutation.mutate()
+          if (e.key === "Escape") setEditing(false)
+        }}
+      />
+      <div className="flex rounded-md border overflow-hidden shrink-0">
+        {(["ص", "م"] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setPeriod(p)}
+            className={`px-1.5 py-0.5 text-xs font-semibold transition-colors ${
+              period === p
+                ? "bg-primary text-primary-foreground"
+                : "bg-background text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+      <button
+        className="p-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600 transition-colors"
+        onClick={() => updateMutation.mutate()}
+        disabled={updateMutation.isPending}
+        title="حفظ"
+      >
+        {updateMutation.isPending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Check className="h-3.5 w-3.5" />
+        )}
+      </button>
+      <button
+        className="p-0.5 rounded hover:bg-accent text-muted-foreground transition-colors"
+        onClick={() => setEditing(false)}
+        title="إلغاء"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
 function TripDetail({ trip }: { trip: Trip }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const queryClient = useQueryClient()
@@ -491,10 +596,7 @@ function TripDetail({ trip }: { trip: Trip }) {
                           <div className="text-xs text-muted-foreground">{stop.station_en}</div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-mono text-sm">{stop.time_ar}</span>
-                          </div>
+                          <StopTimeCell stop={stop} tripId={trip.id} />
                         </TableCell>
                         <TableCell>
                           <button
