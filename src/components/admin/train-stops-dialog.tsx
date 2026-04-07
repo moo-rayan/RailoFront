@@ -23,8 +23,9 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check } from "lucide-react"
+import { Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check, Train } from "lucide-react"
 import { TrainRouteMap } from "./train-route-map"
+import { toast } from "sonner"
 
 interface TrainStopsDialogProps {
   open: boolean
@@ -40,11 +41,23 @@ export function TrainStopsDialog({
   trainName,
 }: TrainStopsDialogProps) {
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null)
+  const queryClient = useQueryClient()
 
   const { data: trips, isLoading, error } = useQuery({
     queryKey: ["train-trips", trainNumber],
     queryFn: () => tripsApi.getByTrainNumber(trainNumber),
     enabled: open && !!trainNumber,
+  })
+
+  const createTripMutation = useMutation({
+    mutationFn: () => tripsApi.create({ train_number: trainNumber }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["train-trips", trainNumber] })
+      toast.success("تم إنشاء الرحلة بنجاح، يمكنك الآن إضافة الوقفات")
+    },
+    onError: () => {
+      toast.error("حدث خطأ أثناء إنشاء الرحلة")
+    },
   })
 
   // Auto-select the first trip for map display
@@ -106,8 +119,26 @@ export function TrainStopsDialog({
         )}
 
         {trips && trips.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            لا توجد رحلات مسجلة لهذا القطار
+          <div className="text-center py-12 space-y-4">
+            <Train className="h-12 w-12 mx-auto text-muted-foreground/50" />
+            <div>
+              <p className="text-lg font-medium">لا توجد رحلات مسجلة لهذا القطار</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                أنشئ رحلة جديدة لتتمكن من إضافة الوقفات والمحطات
+              </p>
+            </div>
+            <Button
+              onClick={() => createTripMutation.mutate()}
+              disabled={createTripMutation.isPending}
+              size="lg"
+            >
+              {createTripMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin ml-2" />
+              ) : (
+                <Plus className="h-4 w-4 ml-2" />
+              )}
+              إنشاء رحلة وإضافة الوقفات
+            </Button>
           </div>
         )}
       </DialogContent>

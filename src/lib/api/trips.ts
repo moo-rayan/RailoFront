@@ -8,9 +8,26 @@ export interface AddStopInput {
   time_en?: string;
 }
 
+export interface CreateTripInput {
+  train_number: string
+  from_station_id?: number | null
+  to_station_id?: number | null
+  departure_ar?: string
+  departure_en?: string
+  arrival_ar?: string
+  arrival_en?: string
+  duration_ar?: string
+  duration_en?: string
+}
+
 export const tripsApi = {
   getByTrainNumber: async (trainNumber: string): Promise<Trip[]> => {
     const response = await apiClient.get(`/trips/by-train/${trainNumber}`);
+    return response.data;
+  },
+
+  create: async (data: CreateTripInput): Promise<Trip> => {
+    const response = await apiClient.post('/trips', data);
     return response.data;
   },
 
