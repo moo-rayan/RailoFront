@@ -72,6 +72,7 @@ const trainTypes = [
   { ar: "مختلط", en: "Mix" },
   { ar: "تالجو", en: "Talgo" },
   { ar: "إسباني", en: "Spanish" },
+  { ar: "ثانية مكيفة فاخرة", en: "Premium AC" },
 ]
 
 /** Parse "5:30 ص" or "5:30 AM" into { time: "5:30", period: "ص" } */
