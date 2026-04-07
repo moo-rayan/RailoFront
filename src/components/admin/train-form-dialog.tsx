@@ -67,11 +67,13 @@ const trainTypes = [
   { ar: "مكيف روسي", en: "AC Russian" },
   { ar: "روسي", en: "Russian" },
   { ar: "مكيف", en: "AC" },
-  { ar: "خاص", en: "VIP" },
+  { ar: "VIP", en: "VIP" },
   { ar: "نوم", en: "Sleep" },
   { ar: "مختلط", en: "Mix" },
   { ar: "تالجو", en: "Talgo" },
   { ar: "إسباني", en: "Spanish" },
+  { ar: "إسباني مطور", en: "Spanish Enhanced" },
+  { ar: "فرنساوي مطور", en: "French Enhanced" },
   { ar: "ثانية مكيفة فاخرة", en: "Premium AC" },
 ]
 
