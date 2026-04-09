@@ -66,4 +66,9 @@ export const dashboardApi = {
     const response = await apiClient.delete(`/live/admin/clear-position/${trainId}`);
     return response.data;
   },
+
+  clearWrongLocationReports: async (trainId: string) => {
+    const response = await apiClient.delete(`/live/admin/clear-wrong-location/${trainId}`);
+    return response.data;
+  },
 };

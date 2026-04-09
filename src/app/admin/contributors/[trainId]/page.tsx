@@ -32,6 +32,7 @@ import {
   Bell,
   LogOut,
   Trash2,
+  MapPinOff,
 } from "lucide-react"
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
@@ -261,6 +262,11 @@ export default function TrainDetailPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
   })
 
+  const clearWrongLocMutation = useMutation({
+    mutationFn: (trainId: string) => dashboardApi.clearWrongLocationReports(trainId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
+  })
+
   // ── Loading / Not found ────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -466,6 +472,20 @@ export default function TrainDetailPage() {
         >
           <Trash2 className="h-3.5 w-3.5" />
           {clearPositionMutation.isPending ? "جاري الحذف..." : "حذف الإحداثيات"}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs text-red-500 hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/20"
+          onClick={() => {
+            if (confirm("هل أنت متأكد من حذف بلاغات المكان الخاطئ لهذا القطار؟")) {
+              clearWrongLocMutation.mutate(room.train_id)
+            }
+          }}
+          disabled={clearWrongLocMutation.isPending || !(room.wrong_location_reports ?? 0)}
+        >
+          <MapPinOff className="h-3.5 w-3.5" />
+          {clearWrongLocMutation.isPending ? "جاري الحذف..." : `حذف البلاغات${(room.wrong_location_reports ?? 0) > 0 ? ` (${room.wrong_location_reports})` : ""}`}
         </Button>
       </div>
 
