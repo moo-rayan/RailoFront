@@ -11,6 +11,7 @@ export interface AppConfig {
   update_message_en: string;
   store_url_android: string;
   store_url_ios: string;
+  station_schedule_check_enabled: boolean;
 }
 
 export async function getAppConfig(): Promise<AppConfig> {

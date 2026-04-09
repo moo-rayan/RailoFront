@@ -18,6 +18,7 @@ import {
   Save,
   AlertTriangle,
   Smartphone,
+  MapPin,
 } from "lucide-react"
 
 export default function AppConfigPage() {
@@ -280,6 +281,36 @@ export default function AppConfigPage() {
               onChange={(e) => updateField("store_url_ios", e.target.value)}
               placeholder="https://apps.apple.com/app/..."
               dir="ltr"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Contribution Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-orange-500" />
+            إعدادات المساهمة
+          </CardTitle>
+          <CardDescription>
+            التحكم في شروط المساهمة في تتبع القطارات
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label htmlFor="station-schedule-check" className="text-base font-medium">
+                فحص الجدول الزمني عند المحطات
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                منع المساهمة إذا كان المستخدم قرب محطة وفات على موعد القطار بأكثر من 4 ساعات
+              </p>
+            </div>
+            <Switch
+              id="station-schedule-check"
+              checked={form.station_schedule_check_enabled ?? true}
+              onCheckedChange={(v) => updateField("station_schedule_check_enabled", v)}
             />
           </div>
         </CardContent>
