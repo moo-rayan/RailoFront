@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { dashboardApi } from "@/lib/api/contributors"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Train, Calendar, Radio } from "lucide-react"
+import { MapPin, Train, Calendar, Radio, MapPinOff } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserStatsSection } from "@/components/admin/user-stats-section"
 
@@ -117,6 +117,12 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 sm:mr-auto">
+                    {(room.wrong_location_reports ?? 0) > 0 && (
+                      <div className="flex items-center gap-1 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 rounded px-1.5 py-0.5">
+                        <MapPinOff className="h-3 w-3" />
+                        <span>{room.wrong_location_reports}</span>
+                      </div>
+                    )}
                     {room.speed > 0 && (
                       <span className="text-xs text-muted-foreground">
                         {room.speed.toFixed(1)} كم/س

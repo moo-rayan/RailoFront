@@ -47,6 +47,7 @@ export interface LiveRoom {
   waiting_list: WaitingContributor[];
   empty_since: number | null;
   is_historical?: boolean;
+  wrong_location_reports?: number;
 }
 
 export interface DashboardRoomsResponse {

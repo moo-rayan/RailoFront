@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   Headphones,
   Bell,
+  MapPinOff,
 } from "lucide-react"
 import { useAuthStore } from "@/lib/stores/auth-store"
 
@@ -259,6 +260,14 @@ export default function ContributorsPage() {
                   <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1">
                     <Crown className="h-3 w-3" />
                     <span>يوجد ليدر مُعيّن</span>
+                  </div>
+                )}
+
+                {/* Wrong location reports */}
+                {(room.wrong_location_reports ?? 0) > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 rounded px-2 py-1">
+                    <MapPinOff className="h-3 w-3" />
+                    <span>{room.wrong_location_reports} بلاغ مكان خاطئ</span>
                   </div>
                 )}
 
