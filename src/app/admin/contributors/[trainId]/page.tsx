@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { dashboardApi } from "@/lib/api/contributors"
-import type { LiveRoom, RoomContributor, WaitingContributor, RoomEvent, FeedEntry, BanInfo } from "@/types"
+import type { LiveRoom, RoomContributor, WaitingContributor, RoomEvent, FeedEntry, BanInfo, SuspensionInfo } from "@/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -102,7 +102,7 @@ export default function TrainDetailPage() {
 
   const isMonitor = useAuthStore((s) => s.admin?.admin_level === "monitor")
   const [banDialog, setBanDialog] = useState<{ open: boolean; userId: string }>({ open: false, userId: "" })
-  const [activeTab, setActiveTab] = useState<"events" | "feed" | "bans">("events")
+  const [activeTab, setActiveTab] = useState<"events" | "feed" | "suspensions" | "bans">("events")
   const lastRoomRef = useRef<LiveRoom | null>(null)
   const missCountRef = useRef(0) // consecutive polls where room is missing
   const _STALE_THRESHOLD = 3     // show stale banner after 3 consecutive misses (15s)
@@ -139,6 +139,14 @@ export default function TrainDetailPage() {
     queryFn: () => dashboardApi.getBans(),
     refetchInterval: 10000,
     enabled: activeTab === "bans",
+  })
+
+  // Fetch suspensions for this train
+  const { data: suspensionsData } = useQuery({
+    queryKey: ["suspensions", trainId],
+    queryFn: () => dashboardApi.getSuspensions(trainId),
+    refetchInterval: 5000,
+    enabled: !!trainId,
   })
 
   const liveRoom: LiveRoom | undefined = roomsData?.rooms?.find(
@@ -202,6 +210,7 @@ export default function TrainDetailPage() {
 
   const feed = feedData?.feed ?? []
   const bans = bansData?.bans ?? []
+  const suspensions = suspensionsData?.suspensions ?? []
 
   // Auto-scroll feed
   useEffect(() => {
@@ -248,13 +257,19 @@ export default function TrainDetailPage() {
   const suspendMutation = useMutation({
     mutationFn: ({ trainId, userId }: { trainId: string; userId: string }) =>
       dashboardApi.suspendContributor(trainId, userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["live-rooms"] })
+      queryClient.invalidateQueries({ queryKey: ["suspensions", trainId] })
+    },
   })
 
   const unsuspendMutation = useMutation({
     mutationFn: ({ trainId, userId }: { trainId: string; userId: string }) =>
       dashboardApi.unsuspendContributor(trainId, userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-rooms"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["live-rooms"] })
+      queryClient.invalidateQueries({ queryKey: ["suspensions", trainId] })
+    },
   })
 
   const clearPositionMutation = useMutation({
@@ -737,6 +752,17 @@ export default function TrainDetailPage() {
               البث الحي ({feed.length})
             </button>
             <button
+              onClick={() => setActiveTab("suspensions")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "suspensions"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Pause className="h-4 w-4" />
+              الموقوفون ({suspensions.length})
+            </button>
+            <button
               onClick={() => setActiveTab("bans")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 activeTab === "bans"
@@ -831,6 +857,57 @@ export default function TrainDetailPage() {
                     )
                   })}
                   <div ref={feedEndRef} />
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Suspensions Tab ── */}
+          {activeTab === "suspensions" && (
+            <>
+              {suspensions.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  <Pause className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  لا يوجد مساهمون موقوفون حالياً لهذا القطار
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {suspensions.map((s: SuspensionInfo) => (
+                    <div
+                      key={s.user_id}
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-orange-50/50 dark:bg-orange-950/10 border-orange-200 dark:border-orange-900"
+                    >
+                      <Pause className="h-5 w-5 text-orange-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-sm font-medium">
+                          {s.user_id.slice(0, 12)}...
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          {s.reason && <span>السبب: {s.reason}</span>}
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {s.ttl_seconds == null
+                              ? "دائم"
+                              : s.ttl_seconds > 3600
+                              ? `المتبقي: ${Math.ceil(s.ttl_seconds / 3600)} ساعة`
+                              : s.ttl_seconds > 60
+                              ? `المتبقي: ${Math.ceil(s.ttl_seconds / 60)} دقيقة`
+                              : `المتبقي: ${s.ttl_seconds} ثانية`}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1 shrink-0 text-green-600 hover:text-green-700 hover:border-green-300"
+                        onClick={() => unsuspendMutation.mutate({ trainId: s.train_id, userId: s.user_id })}
+                        disabled={unsuspendMutation.isPending}
+                      >
+                        <Play className="h-3 w-3" />
+                        فك الإيقاف
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </>

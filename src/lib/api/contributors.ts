@@ -62,6 +62,11 @@ export const dashboardApi = {
     return response.data;
   },
 
+  getSuspensions: async (trainId: string) => {
+    const response = await apiClient.get(`/live/admin/suspensions/${trainId}`);
+    return response.data;
+  },
+
   clearTrainPosition: async (trainId: string) => {
     const response = await apiClient.delete(`/live/admin/clear-position/${trainId}`);
     return response.data;

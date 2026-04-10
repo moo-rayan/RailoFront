@@ -96,6 +96,18 @@ export interface FeedResponse {
   feed: FeedEntry[];
 }
 
+export interface SuspensionInfo {
+  user_id: string;
+  train_id: string;
+  reason: string;
+  ttl_seconds: number | null; // null = permanent
+}
+
+export interface SuspensionListResponse {
+  total: number;
+  suspensions: SuspensionInfo[];
+}
+
 export interface BanInfo {
   user_id: string;
   reason: string;
