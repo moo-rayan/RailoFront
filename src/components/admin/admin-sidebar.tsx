@@ -108,7 +108,7 @@ const sidebarItems: SidebarItem[] = [
     title: "الإعدادات",
     href: "/admin/settings",
     icon: Settings,
-    minLevel: "fulladmin",
+    minLevel: "monitor",
   },
 ]
 
