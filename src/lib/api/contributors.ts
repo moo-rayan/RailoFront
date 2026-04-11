@@ -77,8 +77,8 @@ export const dashboardApi = {
     return response.data;
   },
 
-  getCrowdReports: async (): Promise<CrowdReportsResponse> => {
-    const response = await apiClient.get('/live/admin/crowd-reports');
+  getCrowdReports: async (trainId: string): Promise<CrowdReportsResponse> => {
+    const response = await apiClient.get(`/live/admin/crowd-reports/${trainId}`);
     return response.data;
   },
 };

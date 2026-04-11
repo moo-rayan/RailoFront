@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { MapPin, Train, Calendar, Radio, MapPinOff } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserStatsSection } from "@/components/admin/user-stats-section"
-import { CrowdReportsSection } from "@/components/admin/crowd-reports-section"
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({
@@ -87,9 +86,6 @@ export default function AdminDashboard() {
 
       {/* User Statistics */}
       <UserStatsSection />
-
-      {/* Crowd Reports */}
-      <CrowdReportsSection />
 
       {/* Live Tracking Summary */}
       <Card>

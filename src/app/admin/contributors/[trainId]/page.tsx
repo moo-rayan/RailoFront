@@ -37,6 +37,7 @@ import {
 import { BanDialog } from "@/components/admin/ban-dialog"
 import { ChatPanel } from "@/components/admin/chat-panel"
 import { LiveTrainMap } from "@/components/admin/train-route-map"
+import { CrowdReportsSection } from "@/components/admin/crowd-reports-section"
 import { useAuthStore } from "@/lib/stores/auth-store"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -965,8 +966,9 @@ export default function TrainDetailPage() {
 
       </div>
       {/* ── Right column: Chat ── */}
-      <div className="lg:sticky lg:top-4 lg:self-start">
+      <div className="lg:sticky lg:top-4 lg:self-start space-y-4">
         <ChatPanel trainId={trainId} />
+        <CrowdReportsSection trainId={trainId} />
       </div>
       </div>{/* end grid */}
 

@@ -124,20 +124,15 @@ export interface BanListResponse {
 
 export interface CrowdVoter {
   user_id: string;
-  display_name: string;
-  avatar_url: string;
-  vote: 'crowded' | 'not_crowded' | string;
-}
-
-export interface CrowdTrainReport {
-  train_id: string;
-  crowded: number;
-  not_crowded: number;
-  total_votes: number;
-  voters: CrowdVoter[];
+  vote: string; // "crowded" | "not_crowded"
+  ttl_seconds: number | null;
+  display_name: string | null;
 }
 
 export interface CrowdReportsResponse {
+  train_id: string;
+  crowded: number;
+  not_crowded: number;
   total: number;
-  trains: CrowdTrainReport[];
+  voters: CrowdVoter[];
 }
