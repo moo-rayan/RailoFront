@@ -10,10 +10,11 @@ import { Train, Users, ThumbsUp, ThumbsDown } from "lucide-react"
 import type { CrowdVoter } from "@/types"
 
 export function CrowdReportsSection() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["crowd-reports"],
     queryFn: () => dashboardApi.getCrowdReports(),
     refetchInterval: 30000,
+    retry: 1,
   })
 
   const trains = data?.trains ?? []
@@ -34,6 +35,24 @@ export function CrowdReportsSection() {
               <Skeleton className="h-16 w-full" />
             </div>
           ))}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (isError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+            <Users className="h-5 w-5 text-orange-500" />
+            بلاغات الازدحام
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            تعذر تحميل بلاغات الازدحام
+          </div>
         </CardContent>
       </Card>
     )
