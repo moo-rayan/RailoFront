@@ -23,6 +23,7 @@ import {
   Headphones,
   Bell,
   MapPinOff,
+  UserCheck,
 } from "lucide-react"
 import { useAuthStore } from "@/lib/stores/auth-store"
 
@@ -268,6 +269,23 @@ export default function ContributorsPage() {
                   <div className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 rounded px-2 py-1">
                     <MapPinOff className="h-3 w-3" />
                     <span>{room.wrong_location_reports} بلاغ مكان خاطئ</span>
+                  </div>
+                )}
+
+                {/* Crowd reports indicator */}
+                {((room.crowd_crowded ?? 0) + (room.crowd_not_crowded ?? 0)) > 0 && (
+                  <div className={`flex items-center gap-1.5 text-xs rounded px-2 py-1 ${
+                    (room.crowd_crowded ?? 0) > (room.crowd_not_crowded ?? 0)
+                      ? "text-orange-600 bg-orange-50 dark:bg-orange-950/20"
+                      : "text-green-600 bg-green-50 dark:bg-green-950/20"
+                  }`}>
+                    <UserCheck className="h-3 w-3" />
+                    <span>
+                      {(room.crowd_crowded ?? 0) + (room.crowd_not_crowded ?? 0)} بلاغ ازدحام
+                      {(room.crowd_crowded ?? 0) > 0 && (
+                        <span className="mr-1">({room.crowd_crowded} مزدحم)</span>
+                      )}
+                    </span>
                   </div>
                 )}
 
