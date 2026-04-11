@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { DashboardRoomsResponse, DashboardStats, RoomLogsResponse, FeedResponse, BanListResponse } from '@/types';
+import type { DashboardRoomsResponse, DashboardStats, RoomLogsResponse, FeedResponse, BanListResponse, CrowdReportsResponse } from '@/types';
 
 export const dashboardApi = {
   getStats: async (): Promise<DashboardStats> => {
@@ -74,6 +74,11 @@ export const dashboardApi = {
 
   clearWrongLocationReports: async (trainId: string) => {
     const response = await apiClient.delete(`/live/admin/clear-wrong-location/${trainId}`);
+    return response.data;
+  },
+
+  getCrowdReports: async (): Promise<CrowdReportsResponse> => {
+    const response = await apiClient.get('/live/admin/crowd-reports');
     return response.data;
   },
 };

@@ -121,3 +121,23 @@ export interface BanListResponse {
   total: number;
   bans: BanInfo[];
 }
+
+export interface CrowdVoter {
+  user_id: string;
+  display_name: string;
+  avatar_url: string;
+  vote: 'crowded' | 'not_crowded' | string;
+}
+
+export interface CrowdTrainReport {
+  train_id: string;
+  crowded: number;
+  not_crowded: number;
+  total_votes: number;
+  voters: CrowdVoter[];
+}
+
+export interface CrowdReportsResponse {
+  total: number;
+  trains: CrowdTrainReport[];
+}
