@@ -67,3 +67,39 @@ export async function updateFare(fareId: number, payload: FareUpdatePayload): Pr
 export async function deleteFare(fareId: number): Promise<void> {
   await apiClient.delete(`/fares/${fareId}`);
 }
+
+export interface FareCreatePayload {
+  train_number: string;
+  from_station_id: number;
+  to_station_id: number;
+  class_name_ar: string;
+  class_name_en: string;
+  price: number;
+}
+
+export interface StationOption {
+  id: number;
+  name_ar: string;
+  name_en: string;
+}
+
+export interface TrainOption {
+  train_id: string;
+  type_ar: string;
+  type_en: string;
+}
+
+export async function createFare(payload: FareCreatePayload): Promise<FareItem> {
+  const { data } = await apiClient.post<FareItem>('/fares', payload);
+  return data;
+}
+
+export async function searchStations(q: string): Promise<StationOption[]> {
+  const { data } = await apiClient.get<StationOption[]>(`/fares/search-stations?q=${encodeURIComponent(q)}`);
+  return data;
+}
+
+export async function searchTrains(q: string): Promise<TrainOption[]> {
+  const { data } = await apiClient.get<TrainOption[]>(`/fares/search-trains?q=${encodeURIComponent(q)}`);
+  return data;
+}

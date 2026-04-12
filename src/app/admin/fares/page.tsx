@@ -13,15 +13,21 @@ import {
   DollarSign,
   Train,
   MapPin,
+  Plus,
 } from "lucide-react"
 import {
   fetchFares,
   fetchFareClasses,
   updateFare,
   deleteFare,
+  createFare,
+  searchStations,
+  searchTrains,
   type FareItem,
   type FareClass,
   type FareSearchParams,
+  type StationOption,
+  type TrainOption,
 } from "@/lib/api/fares"
 
 export default function FaresPage() {
@@ -47,6 +53,27 @@ export default function FaresPage() {
 
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<number | null>(null)
+
+  // Create form
+  const [showCreate, setShowCreate] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState("")
+  // -- Station search
+  const [newFromQuery, setNewFromQuery] = useState("")
+  const [newToQuery, setNewToQuery] = useState("")
+  const [newTrainQuery, setNewTrainQuery] = useState("")
+  const [fromOptions, setFromOptions] = useState<StationOption[]>([])
+  const [toOptions, setToOptions] = useState<StationOption[]>([])
+  const [trainOptions, setTrainOptions] = useState<TrainOption[]>([])
+  const [selectedFrom, setSelectedFrom] = useState<StationOption | null>(null)
+  const [selectedTo, setSelectedTo] = useState<StationOption | null>(null)
+  const [selectedTrain, setSelectedTrain] = useState<TrainOption | null>(null)
+  const [newClassAr, setNewClassAr] = useState("")
+  const [newClassEn, setNewClassEn] = useState("")
+  const [newPrice, setNewPrice] = useState("")
+  const [showFromDropdown, setShowFromDropdown] = useState(false)
+  const [showToDropdown, setShowToDropdown] = useState(false)
+  const [showTrainDropdown, setShowTrainDropdown] = useState(false)
 
   const totalPages = Math.ceil(total / pageSize)
 
@@ -135,6 +162,74 @@ export default function FaresPage() {
     }
   }
 
+  // Search helpers for create form
+  useEffect(() => {
+    if (newFromQuery.length < 1) { setFromOptions([]); return }
+    const t = setTimeout(async () => {
+      try { setFromOptions(await searchStations(newFromQuery)) } catch {}
+    }, 300)
+    return () => clearTimeout(t)
+  }, [newFromQuery])
+
+  useEffect(() => {
+    if (newToQuery.length < 1) { setToOptions([]); return }
+    const t = setTimeout(async () => {
+      try { setToOptions(await searchStations(newToQuery)) } catch {}
+    }, 300)
+    return () => clearTimeout(t)
+  }, [newToQuery])
+
+  useEffect(() => {
+    if (newTrainQuery.length < 1) { setTrainOptions([]); return }
+    const t = setTimeout(async () => {
+      try { setTrainOptions(await searchTrains(newTrainQuery)) } catch {}
+    }, 300)
+    return () => clearTimeout(t)
+  }, [newTrainQuery])
+
+  const resetCreateForm = () => {
+    setNewFromQuery("")
+    setNewToQuery("")
+    setNewTrainQuery("")
+    setSelectedFrom(null)
+    setSelectedTo(null)
+    setSelectedTrain(null)
+    setNewClassAr("")
+    setNewClassEn("")
+    setNewPrice("")
+    setCreateError("")
+    setFromOptions([])
+    setToOptions([])
+    setTrainOptions([])
+  }
+
+  const handleCreate = async () => {
+    if (!selectedFrom || !selectedTo || !selectedTrain || !newClassEn || !newPrice) {
+      setCreateError("يرجى ملء جميع الحقول")
+      return
+    }
+    setCreating(true)
+    setCreateError("")
+    try {
+      await createFare({
+        train_number: selectedTrain.train_id,
+        from_station_id: selectedFrom.id,
+        to_station_id: selectedTo.id,
+        class_name_ar: newClassAr,
+        class_name_en: newClassEn,
+        price: Number(newPrice),
+      })
+      resetCreateForm()
+      setShowCreate(false)
+      loadFares()
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || "حدث خطأ أثناء الإضافة"
+      setCreateError(msg)
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const clearFilters = () => {
     setFromStation("")
     setToStation("")
@@ -155,11 +250,202 @@ export default function FaresPage() {
             إجمالي {total.toLocaleString()} سعر مسجل
           </p>
         </div>
-        <div className="flex items-center gap-2 text-sm bg-primary/10 text-primary px-3 py-1.5 rounded-full">
-          <DollarSign className="h-4 w-4" />
-          <span>{total.toLocaleString()} سجل</span>
-        </div>
+        <button
+          onClick={() => { setShowCreate(!showCreate); if (showCreate) resetCreateForm() }}
+          className="flex items-center gap-2 text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          إضافة سعر
+        </button>
       </div>
+
+      {/* Create Form */}
+      {showCreate && (
+        <div className="bg-card rounded-xl border p-5 space-y-4">
+          <h2 className="text-lg font-bold">إضافة سعر جديد</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* From Station */}
+            <div className="relative">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">محطة المغادرة</label>
+              {selectedFrom ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-green-50 dark:bg-green-900/20 px-3 py-2.5">
+                  <MapPin className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium flex-1">{selectedFrom.name_ar} — {selectedFrom.name_en}</span>
+                  <button onClick={() => { setSelectedFrom(null); setNewFromQuery("") }} className="text-muted-foreground hover:text-destructive">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="ابحث عن المحطة..."
+                    value={newFromQuery}
+                    onChange={(e) => { setNewFromQuery(e.target.value); setShowFromDropdown(true) }}
+                    onFocus={() => setShowFromDropdown(true)}
+                    className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  {showFromDropdown && fromOptions.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-card border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {fromOptions.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => { setSelectedFrom(s); setNewFromQuery(""); setShowFromDropdown(false) }}
+                          className="w-full text-right px-3 py-2 text-sm hover:bg-muted transition-colors"
+                        >
+                          <span className="font-medium">{s.name_ar}</span>
+                          <span className="text-xs text-muted-foreground mr-2">{s.name_en}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* To Station */}
+            <div className="relative">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">محطة الوصول</label>
+              {selectedTo ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-green-50 dark:bg-green-900/20 px-3 py-2.5">
+                  <MapPin className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium flex-1">{selectedTo.name_ar} — {selectedTo.name_en}</span>
+                  <button onClick={() => { setSelectedTo(null); setNewToQuery("") }} className="text-muted-foreground hover:text-destructive">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="ابحث عن المحطة..."
+                    value={newToQuery}
+                    onChange={(e) => { setNewToQuery(e.target.value); setShowToDropdown(true) }}
+                    onFocus={() => setShowToDropdown(true)}
+                    className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  {showToDropdown && toOptions.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-card border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {toOptions.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => { setSelectedTo(s); setNewToQuery(""); setShowToDropdown(false) }}
+                          className="w-full text-right px-3 py-2 text-sm hover:bg-muted transition-colors"
+                        >
+                          <span className="font-medium">{s.name_ar}</span>
+                          <span className="text-xs text-muted-foreground mr-2">{s.name_en}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Train */}
+            <div className="relative">
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">رقم القطار</label>
+              {selectedTrain ? (
+                <div className="flex items-center gap-2 rounded-lg border bg-blue-50 dark:bg-blue-900/20 px-3 py-2.5">
+                  <Train className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium flex-1">{selectedTrain.train_id} — {selectedTrain.type_ar}</span>
+                  <button onClick={() => { setSelectedTrain(null); setNewTrainQuery("") }} className="text-muted-foreground hover:text-destructive">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="ابحث برقم القطار..."
+                    value={newTrainQuery}
+                    onChange={(e) => { setNewTrainQuery(e.target.value); setShowTrainDropdown(true) }}
+                    onFocus={() => setShowTrainDropdown(true)}
+                    className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  {showTrainDropdown && trainOptions.length > 0 && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-card border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {trainOptions.map((t) => (
+                        <button
+                          key={t.train_id}
+                          onClick={() => { setSelectedTrain(t); setNewTrainQuery(""); setShowTrainDropdown(false) }}
+                          className="w-full text-right px-3 py-2 text-sm hover:bg-muted transition-colors"
+                        >
+                          <span className="font-mono font-bold">{t.train_id}</span>
+                          <span className="text-xs text-muted-foreground mr-2">{t.type_ar}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Class */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">الدرجة</label>
+              <select
+                value={newClassEn}
+                onChange={(e) => {
+                  const selected = classes.find((c) => c.en === e.target.value)
+                  if (selected) {
+                    setNewClassEn(selected.en)
+                    setNewClassAr(selected.ar)
+                  }
+                }}
+                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="">اختر الدرجة...</option>
+                {classes.map((c) => (
+                  <option key={c.en} value={c.en}>
+                    {c.ar} ({c.en})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Price */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">السعر (ج.م)</label>
+              <input
+                type="number"
+                placeholder="0"
+                value={newPrice}
+                onChange={(e) => setNewPrice(e.target.value)}
+                min={0}
+                dir="ltr"
+                className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-end gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors text-sm font-medium"
+              >
+                {creating ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                إضافة
+              </button>
+              <button
+                onClick={() => { setShowCreate(false); resetCreateForm() }}
+                className="px-4 py-2.5 rounded-lg border hover:bg-muted transition-colors text-sm"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+
+          {createError && (
+            <p className="text-sm text-destructive font-medium">{createError}</p>
+          )}
+        </div>
+      )}
 
       {/* Search & Filters */}
       <div className="bg-card rounded-xl border p-4 space-y-4">
