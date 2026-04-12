@@ -292,23 +292,23 @@ export default function FaresPage() {
                     {/* Class */}
                     <td className="py-3 px-4">
                       {editingId === fare.id ? (
-                        <div className="space-y-1">
-                          <input
-                            type="text"
-                            value={editClassAr}
-                            onChange={(e) => setEditClassAr(e.target.value)}
-                            className="w-full rounded border px-2 py-1 text-xs bg-background"
-                            placeholder="الدرجة (عربي)"
-                          />
-                          <input
-                            type="text"
-                            value={editClassEn}
-                            onChange={(e) => setEditClassEn(e.target.value)}
-                            className="w-full rounded border px-2 py-1 text-xs bg-background"
-                            placeholder="Class (English)"
-                            dir="ltr"
-                          />
-                        </div>
+                        <select
+                          value={editClassEn}
+                          onChange={(e) => {
+                            const selected = classes.find((c) => c.en === e.target.value)
+                            if (selected) {
+                              setEditClassEn(selected.en)
+                              setEditClassAr(selected.ar)
+                            }
+                          }}
+                          className="w-full rounded border px-2 py-1.5 text-xs bg-background"
+                        >
+                          {classes.map((c) => (
+                            <option key={c.en} value={c.en}>
+                              {c.ar} ({c.en})
+                            </option>
+                          ))}
+                        </select>
                       ) : (
                         <>
                           <div className="font-medium">{fare.class_name_ar}</div>
