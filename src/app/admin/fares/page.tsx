@@ -169,7 +169,7 @@ export default function FaresPage() {
             <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="محطة المغادرة (إنجليزي)..."
+              placeholder="محطة المغادرة..."
               value={fromStation}
               onChange={(e) => handleSearchChange(setFromStation, e.target.value)}
               className="w-full rounded-lg border bg-background px-10 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -181,7 +181,7 @@ export default function FaresPage() {
             <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="محطة الوصول (إنجليزي)..."
+              placeholder="محطة الوصول..."
               value={toStation}
               onChange={(e) => handleSearchChange(setToStation, e.target.value)}
               className="w-full rounded-lg border bg-background px-10 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
