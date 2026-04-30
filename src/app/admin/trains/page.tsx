@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Search, Edit, Trash2, Train as TrainIcon, MapPin } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Train as TrainIcon, MapPin, StickyNote } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { TrainFormDialog } from "@/components/admin/train-form-dialog"
 import { TrainStopsDialog } from "@/components/admin/train-stops-dialog"
@@ -180,6 +180,7 @@ export default function TrainsPage() {
                     <TableHead className="text-right hidden sm:table-cell">من</TableHead>
                     <TableHead className="text-right hidden md:table-cell">إلى</TableHead>
                     <TableHead className="text-right hidden lg:table-cell">عدد المحطات</TableHead>
+                    <TableHead className="text-right hidden lg:table-cell">ملاحظات</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
                     <TableHead className="text-right">الإجراءات</TableHead>
                   </TableRow>
@@ -187,7 +188,7 @@ export default function TrainsPage() {
                 <TableBody>
                   {filteredTrains.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         لا توجد قطارات
                       </TableCell>
                     </TableRow>
@@ -215,6 +216,18 @@ export default function TrainsPage() {
                           <span className="text-sm text-muted-foreground">
                             {train.stops_count} محطة
                           </span>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {train.note_ar ? (
+                            <div className="flex items-center gap-1.5 max-w-[200px]">
+                              <StickyNote className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-sm text-muted-foreground truncate" title={train.note_ar}>
+                                {train.note_ar}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground/50">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant={train.is_active ? "default" : "secondary"} className="whitespace-nowrap">
