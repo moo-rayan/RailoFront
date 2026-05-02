@@ -145,7 +145,7 @@ function StationSearchField({
   }, [])
 
   const handleClear = useCallback(() => {
-    onSelect({ id: 0, name_ar: "", name_en: "", latitude: null, longitude: null, place_id: null, is_active: true, created_at: "", updated_at: "" })
+    onSelect({ id: 0, name_ar: "", name_en: "", latitude: null, longitude: null, place_id: null, audio_id: "", is_active: true, created_at: "", updated_at: "" })
     setQuery("")
   }, [onSelect])
 
