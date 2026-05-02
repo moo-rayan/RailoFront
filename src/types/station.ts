@@ -5,6 +5,7 @@ export interface Station {
   latitude: number | null;
   longitude: number | null;
   place_id: string | null;
+  audio_id: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -16,6 +17,7 @@ export interface CreateStationInput {
   latitude?: number | null;
   longitude?: number | null;
   place_id?: string | null;
+  audio_id: string;
 }
 
 export interface UpdateStationInput {
@@ -24,6 +26,7 @@ export interface UpdateStationInput {
   latitude?: number | null;
   longitude?: number | null;
   place_id?: string | null;
+  audio_id?: string;
   is_active?: boolean;
 }
 

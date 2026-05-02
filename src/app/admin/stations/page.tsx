@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Search, Edit, Trash2, MapPin, Filter } from "lucide-react"
+import { Plus, Search, Edit, Trash2, MapPin, Filter, ArrowUpDown, Volume2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { StationFormDialog } from "@/components/admin/station-form-dialog"
 import {
@@ -38,6 +38,7 @@ export default function StationsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedStation, setSelectedStation] = useState<Station | undefined>()
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
+  const [sortByAudioId, setSortByAudioId] = useState(false)
   const queryClient = useQueryClient()
 
   // Fetch stations
@@ -74,13 +75,14 @@ export default function StationsPage() {
     },
   })
 
-  // Filter stations by name and coordinates
+  // Filter stations by name, coordinates, or audio_id
   const filteredStations = stations.filter((station) => {
-    // Name filter (Arabic or English)
+    // Name filter (Arabic, English, or audio_id)
     const nameMatch =
       nameFilter === "" ||
       station.name_ar.includes(nameFilter) ||
-      station.name_en.toLowerCase().includes(nameFilter.toLowerCase())
+      station.name_en.toLowerCase().includes(nameFilter.toLowerCase()) ||
+      station.audio_id.includes(nameFilter)
 
     // Latitude filter
     const latMatch =
@@ -96,6 +98,11 @@ export default function StationsPage() {
 
     return nameMatch && latMatch && lngMatch
   })
+
+  // Sort by audio_id if toggled
+  const displayedStations = sortByAudioId
+    ? [...filteredStations].sort((a, b) => a.audio_id.localeCompare(b.audio_id))
+    : filteredStations
 
   const handleCreate = () => {
     setSelectedStation(undefined)
@@ -130,10 +137,20 @@ export default function StationsPage() {
             {stationsData?.total ?? 0} محطة في النظام
           </p>
         </div>
-        <Button onClick={handleCreate} className="w-full sm:w-auto">
-          <Plus className="ml-2 h-4 w-4" />
-          إضافة محطة
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button
+            variant={sortByAudioId ? "default" : "outline"}
+            onClick={() => setSortByAudioId(!sortByAudioId)}
+            className="w-full sm:w-auto"
+          >
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+            ترتيب بـ Audio ID
+          </Button>
+          <Button onClick={handleCreate} className="w-full sm:w-auto">
+            <Plus className="ml-2 h-4 w-4" />
+            إضافة محطة
+          </Button>
+        </div>
       </div>
 
       {/* Search & Filters */}
@@ -222,6 +239,7 @@ export default function StationsPage() {
                     <TableHead className="text-right w-12 hidden md:table-cell">#</TableHead>
                     <TableHead className="text-right">الاسم بالعربي</TableHead>
                     <TableHead className="text-right hidden sm:table-cell">الاسم بالإنجليزي</TableHead>
+                    <TableHead className="text-right w-20">Audio ID</TableHead>
                     <TableHead className="text-right hidden lg:table-cell">الإحداثيات</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
                     <TableHead className="text-right">الإجراءات</TableHead>
@@ -230,12 +248,12 @@ export default function StationsPage() {
                 <TableBody>
                   {filteredStations.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         لا توجد محطات
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredStations.map((station) => (
+                    displayedStations.map((station) => (
                       <TableRow key={station.id}>
                         <TableCell className="text-muted-foreground font-mono hidden md:table-cell">
                           {station.id}
@@ -245,6 +263,14 @@ export default function StationsPage() {
                         </TableCell>
                         <TableCell className="text-muted-foreground hidden sm:table-cell">
                           {station.name_en}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <Volume2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
+                              {station.audio_id}
+                            </code>
+                          </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           {station.latitude != null && station.longitude != null ? (

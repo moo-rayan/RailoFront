@@ -30,6 +30,7 @@ import { toast } from "sonner"
 const stationSchema = z.object({
   name_ar: z.string().min(1, "الاسم بالعربي مطلوب"),
   name_en: z.string().min(1, "الاسم بالإنجليزي مطلوب"),
+  audio_id: z.string().min(1, "Audio ID مطلوب").max(10, "Audio ID أقصى 10 حروف"),
   latitude: z.string().optional(),
   longitude: z.string().optional(),
   place_id: z.string().optional(),
@@ -57,6 +58,7 @@ export function StationFormDialog({
     defaultValues: {
       name_ar: "",
       name_en: "",
+      audio_id: "",
       latitude: "",
       longitude: "",
       place_id: "",
@@ -68,6 +70,7 @@ export function StationFormDialog({
       form.reset({
         name_ar: station?.name_ar ?? "",
         name_en: station?.name_en ?? "",
+        audio_id: station?.audio_id ?? "",
         latitude: station?.latitude?.toString() ?? "",
         longitude: station?.longitude?.toString() ?? "",
         place_id: station?.place_id ?? "",
@@ -105,6 +108,7 @@ export function StationFormDialog({
     const payload = {
       name_ar: data.name_ar,
       name_en: data.name_en,
+      audio_id: data.audio_id,
       latitude: data.latitude ? parseFloat(data.latitude) : null,
       longitude: data.longitude ? parseFloat(data.longitude) : null,
       place_id: data.place_id || null,
@@ -157,6 +161,21 @@ export function StationFormDialog({
                   <FormLabel>الاسم بالإنجليزي *</FormLabel>
                   <FormControl>
                     <Input placeholder="Cairo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Audio ID */}
+            <FormField
+              control={form.control}
+              name="audio_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Audio ID *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="0001" className="font-mono" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
