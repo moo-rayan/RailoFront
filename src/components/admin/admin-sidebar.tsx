@@ -25,6 +25,7 @@ import {
   LogOut,
   Menu,
   DollarSign,
+  Newspaper,
 } from "lucide-react"
 import type { AdminLevel } from "@/lib/stores/auth-store"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -61,6 +62,12 @@ const sidebarItems: SidebarItem[] = [
     title: "الأسعار",
     href: "/admin/fares",
     icon: DollarSign,
+    minLevel: "monitor",
+  },
+  {
+    title: "الأخبار",
+    href: "/admin/news",
+    icon: Newspaper,
     minLevel: "monitor",
   },
   {
