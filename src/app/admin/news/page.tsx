@@ -85,7 +85,7 @@ export default function NewsPage() {
   }
 
   return (
-    <RequireAdminLevel level="fulladmin">
+    <RequireAdminLevel level="monitor">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
