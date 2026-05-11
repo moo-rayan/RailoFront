@@ -2,9 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query"
 import { dashboardApi } from "@/lib/api/contributors"
+import { fetchOnlineFareStats } from "@/lib/api/fares"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Train, Calendar, Radio, MapPinOff } from "lucide-react"
+import { MapPin, Train, Calendar, Radio, MapPinOff, DollarSign } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserStatsSection } from "@/components/admin/user-stats-section"
 
@@ -21,6 +22,12 @@ export default function AdminDashboard() {
     refetchInterval: 15000,
   })
 
+  const { data: fareStats, isLoading: isFareStatsLoading } = useQuery({
+    queryKey: ["online-fare-stats-summary"],
+    queryFn: () => fetchOnlineFareStats(4),
+    refetchInterval: 60000,
+  })
+
   const rooms = roomsData?.rooms ?? []
 
   const statCards = [
@@ -29,24 +36,37 @@ export default function AdminDashboard() {
       value: stats?.stations ?? "-",
       icon: MapPin,
       description: "محطة في النظام",
+      loading: isLoading,
     },
     {
       title: "إجمالي القطارات",
       value: stats?.trains ?? "-",
       icon: Train,
       description: "قطار مسجل",
+      loading: isLoading,
     },
     {
       title: "إجمالي الرحلات",
       value: stats?.trips ?? "-",
       icon: Calendar,
       description: "رحلة في النظام",
+      loading: isLoading,
     },
     {
       title: "تتبع حي",
       value: stats?.active_rooms ?? "-",
       icon: Radio,
       description: "قطار يُتتبع الآن",
+      loading: isLoading,
+    },
+    {
+      title: "أسعار أونلاين",
+      value: fareStats?.total_online_updated ?? "-",
+      icon: DollarSign,
+      description: fareStats
+        ? `${fareStats.routes_count.toLocaleString("ar-EG")} مسار محدث`
+        : "أسعار تم تحديثها من ENR",
+      loading: isFareStatsLoading,
     },
   ]
 
@@ -61,7 +81,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:gap-6 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 grid-cols-2 lg:grid-cols-5">
         {statCards.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -71,7 +91,7 @@ export default function AdminDashboard() {
               <stat.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {isLoading ? (
+              {stat.loading ? (
                 <Skeleton className="h-8 w-20" />
               ) : (
                 <div className="text-xl md:text-2xl font-bold">{stat.value}</div>

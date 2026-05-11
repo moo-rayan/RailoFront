@@ -12,6 +12,7 @@ export interface FareItem {
   class_name_ar: string;
   class_name_en: string;
   price: number;
+  online_updated_at?: string | null;
 }
 
 export interface FareListResponse {
@@ -35,6 +36,27 @@ export interface FareSearchParams {
   fare_class?: string;
 }
 
+export interface OnlineFareRouteStat {
+  from_station_id: number;
+  from_station_ar: string;
+  from_station_en: string;
+  to_station_id: number;
+  to_station_ar: string;
+  to_station_en: string;
+  fare_count: number;
+  train_count: number;
+  last_online_update: string | null;
+}
+
+export interface OnlineFareStats {
+  total_online_updated: number;
+  updated_today: number;
+  routes_count: number;
+  trains_count: number;
+  last_online_update: string | null;
+  recent_routes: OnlineFareRouteStat[];
+}
+
 export interface FareUpdatePayload {
   class_name_ar?: string;
   class_name_en?: string;
@@ -51,6 +73,11 @@ export async function fetchFares(params: FareSearchParams): Promise<FareListResp
   if (params.fare_class) searchParams.set('fare_class', params.fare_class);
 
   const { data } = await apiClient.get<FareListResponse>(`/fares?${searchParams.toString()}`);
+  return data;
+}
+
+export async function fetchOnlineFareStats(limit = 8): Promise<OnlineFareStats> {
+  const { data } = await apiClient.get<OnlineFareStats>(`/fares/online-stats?limit=${limit}`);
   return data;
 }
 

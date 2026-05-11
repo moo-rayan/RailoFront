@@ -10,14 +10,18 @@ import {
   X,
   Check,
   Filter,
-  DollarSign,
   Train,
   MapPin,
   Plus,
+  RefreshCw,
+  Wifi,
+  Clock3,
+  Route,
 } from "lucide-react"
 import {
   fetchFares,
   fetchFareClasses,
+  fetchOnlineFareStats,
   updateFare,
   deleteFare,
   createFare,
@@ -28,6 +32,7 @@ import {
   type FareSearchParams,
   type StationOption,
   type TrainOption,
+  type OnlineFareStats,
 } from "@/lib/api/fares"
 
 export default function FaresPage() {
@@ -36,6 +41,8 @@ export default function FaresPage() {
   const [total, setTotal] = useState(0)
   const [classes, setClasses] = useState<FareClass[]>([])
   const [loading, setLoading] = useState(true)
+  const [onlineStats, setOnlineStats] = useState<OnlineFareStats | null>(null)
+  const [onlineStatsLoading, setOnlineStatsLoading] = useState(true)
 
   // Filters
   const [page, setPage] = useState(1)
@@ -77,6 +84,21 @@ export default function FaresPage() {
 
   const totalPages = Math.ceil(total / pageSize)
 
+  const formatNumber = (value: number) => value.toLocaleString("ar-EG")
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return "لا يوجد"
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return "لا يوجد"
+    return new Intl.DateTimeFormat("ar-EG", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date)
+  }
+
   const loadFares = useCallback(async () => {
     setLoading(true)
     try {
@@ -99,6 +121,18 @@ export default function FaresPage() {
     }
   }, [page, pageSize, fromStation, toStation, trainNumber, fareClass])
 
+  const loadOnlineStats = useCallback(async () => {
+    setOnlineStatsLoading(true)
+    try {
+      const res = await fetchOnlineFareStats(8)
+      setOnlineStats(res)
+    } catch (err) {
+      console.error("Failed to load online fare stats:", err)
+    } finally {
+      setOnlineStatsLoading(false)
+    }
+  }, [])
+
   const loadClasses = useCallback(async () => {
     try {
       const res = await fetchFareClasses()
@@ -111,6 +145,10 @@ export default function FaresPage() {
   useEffect(() => {
     loadClasses()
   }, [loadClasses])
+
+  useEffect(() => {
+    loadOnlineStats()
+  }, [loadOnlineStats])
 
   useEffect(() => {
     loadFares()
@@ -222,8 +260,11 @@ export default function FaresPage() {
       resetCreateForm()
       setShowCreate(false)
       loadFares()
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail || "حدث خطأ أثناء الإضافة"
+    } catch (err: unknown) {
+      const response = err && typeof err === "object" && "response" in err
+        ? (err as { response?: { data?: { detail?: string } } }).response
+        : undefined
+      const msg = response?.data?.detail || "حدث خطأ أثناء الإضافة"
       setCreateError(msg)
     } finally {
       setCreating(false)
@@ -257,6 +298,113 @@ export default function FaresPage() {
           <Plus className="h-4 w-4" />
           إضافة سعر
         </button>
+      </div>
+
+      {/* Online fare refresh stats */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-medium">أسعار محدثة أونلاين</span>
+            <Wifi className="h-4 w-4 text-primary" />
+          </div>
+          <div className="mt-3 text-2xl font-bold">
+            {onlineStatsLoading ? "..." : formatNumber(onlineStats?.total_online_updated ?? 0)}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">إجمالي صفوف الأسعار التي وصلت من ENR</p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-medium">تحديثات اليوم</span>
+            <RefreshCw className="h-4 w-4 text-green-600" />
+          </div>
+          <div className="mt-3 text-2xl font-bold">
+            {onlineStatsLoading ? "..." : formatNumber(onlineStats?.updated_today ?? 0)}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">حسب توقيت القاهرة</p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-medium">المسارات المحدثة</span>
+            <Route className="h-4 w-4 text-blue-600" />
+          </div>
+          <div className="mt-3 text-2xl font-bold">
+            {onlineStatsLoading ? "..." : formatNumber(onlineStats?.routes_count ?? 0)}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {formatNumber(onlineStats?.trains_count ?? 0)} قطار لديه أسعار أونلاين
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-xs font-medium">آخر تحديث</span>
+            <Clock3 className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="mt-3 text-sm font-bold leading-7">
+            {onlineStatsLoading ? "..." : formatDateTime(onlineStats?.last_online_update)}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">آخر سعر تم تغييره أو إضافته</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div>
+            <h2 className="text-sm font-bold">آخر مسارات تم تحديث أسعارها من الإنترنت</h2>
+            <p className="mt-1 text-xs text-muted-foreground">توضح عدد القطارات والأسعار التي تم تحديثها لكل مسار</p>
+          </div>
+          <button
+            onClick={loadOnlineStats}
+            disabled={onlineStatsLoading}
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium hover:bg-muted disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${onlineStatsLoading ? "animate-spin" : ""}`} />
+            تحديث
+          </button>
+        </div>
+
+        {onlineStatsLoading ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">جاري تحميل إحصائيات الأسعار...</div>
+        ) : !onlineStats || onlineStats.recent_routes.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">لم يتم تحديث أسعار أونلاين بعد</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">المسار</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">آخر تحديث</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">القطارات</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">الأسعار</th>
+                </tr>
+              </thead>
+              <tbody>
+                {onlineStats.recent_routes.map((route) => (
+                  <tr
+                    key={`${route.from_station_id}-${route.to_station_id}`}
+                    className="border-b last:border-0 hover:bg-muted/30"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="font-medium">
+                        من {route.from_station_ar} إلى {route.to_station_ar}
+                      </div>
+                      <div className="text-xs text-muted-foreground" dir="ltr">
+                        {route.from_station_en} → {route.to_station_en}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatDateTime(route.last_online_update)}</td>
+                    <td className="px-4 py-3 font-bold">{formatNumber(route.train_count)}</td>
+                    <td className="px-4 py-3 font-bold text-green-600 dark:text-green-400">
+                      {formatNumber(route.fare_count)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Create Form */}
@@ -529,13 +677,14 @@ export default function FaresPage() {
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">إلى</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">الدرجة</th>
                 <th className="text-right py-3 px-4 font-medium text-muted-foreground">السعر (ج.م)</th>
+                <th className="text-right py-3 px-4 font-medium text-muted-foreground">تحديث أونلاين</th>
                 <th className="text-center py-3 px-4 font-medium text-muted-foreground w-24">إجراءات</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                       جاري التحميل...
@@ -544,7 +693,7 @@ export default function FaresPage() {
                 </tr>
               ) : fares.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <td colSpan={7} className="text-center py-12 text-muted-foreground">
                     <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     لا توجد نتائج
                   </td>
@@ -618,6 +767,21 @@ export default function FaresPage() {
                         <span className="font-bold text-green-600 dark:text-green-400">
                           {fare.price.toLocaleString()} ج.م
                         </span>
+                      )}
+                    </td>
+
+                    {/* Online update */}
+                    <td className="py-3 px-4">
+                      {fare.online_updated_at ? (
+                        <div className="inline-flex flex-col rounded-md bg-green-50 px-2 py-1 text-xs text-green-700 dark:bg-green-950/30 dark:text-green-300">
+                          <span className="flex items-center gap-1 font-medium">
+                            <Wifi className="h-3 w-3" />
+                            أونلاين
+                          </span>
+                          <span className="text-[10px] opacity-80">{formatDateTime(fare.online_updated_at)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">محلي</span>
                       )}
                     </td>
 
