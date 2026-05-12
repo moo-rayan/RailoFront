@@ -109,7 +109,7 @@ export const chatApi = {
     return response.data as { total: number; bans: ChatBan[] };
   },
 
-  sendAdminMessage: async (trainId: string, text: string, adminName = 'المشرف') => {
+  sendAdminMessage: async (trainId: string, text: string, adminName = 'مشرف') => {
     const response = await apiClient.post(`/admin/chat/${trainId}/send`, {
       text,
       admin_name: adminName,

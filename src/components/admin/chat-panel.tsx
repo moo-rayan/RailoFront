@@ -10,6 +10,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   MessageCircle,
   AlertTriangle,
   Ban,
@@ -52,6 +59,12 @@ function formatBanExpiry(expiresAt: string | null) {
   return `${Math.ceil(remaining / 86400)} يوم`
 }
 
+function normalizeAdminLabel(name?: string | null) {
+  const trimmed = name?.trim()
+  if (trimmed === "مسؤول") return "مسؤول"
+  return "مشرف"
+}
+
 // ── Chat Panel Props ─────────────────────────────────────────────────────────
 
 interface ChatPanelProps {
@@ -74,8 +87,8 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
   const [onlineUsers, setOnlineUsers] = useState(0)
   const [activeSection, setActiveSection] = useState<"chat" | "reports" | "bans">("chat")
   const [adminInput, setAdminInput] = useState("")
+  const [adminRole, setAdminRole] = useState<"مشرف" | "مسؤول">("مشرف")
   const [isSending, setIsSending] = useState(false)
-  const lastMsgIdRef = useRef<string | null>(null)
 
   // ── HTTP polling fallback (catches messages if WS drops) ──────────
 
@@ -274,14 +287,14 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
     setIsSending(true)
     try {
       // Send via REST — handles storage + broadcast to all users & admin observers
-      await chatApi.sendAdminMessage(trainId, text, "المشرف")
+      await chatApi.sendAdminMessage(trainId, text, adminRole)
       setAdminInput("")
     } catch (err) {
       console.error("Failed to send admin message:", err)
     } finally {
       setIsSending(false)
     }
-  }, [adminInput, isSending, trainId])
+  }, [adminInput, adminRole, isSending, trainId])
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -424,11 +437,8 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
                               <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                                {msg.user_name || "المشرف"}
+                                {normalizeAdminLabel(msg.user_name)}
                               </span>
-                              <Badge className="bg-amber-500 hover:bg-amber-600 text-[9px] h-4 px-1">
-                                مشرف
-                              </Badge>
                               <span className="text-[10px] text-muted-foreground shrink-0">
                                 {formatChatTime(msg.timestamp)}
                               </span>
@@ -494,6 +504,15 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
               </div>
               {/* Admin message input */}
               <div className="border-t p-3 flex items-center gap-2">
+                <Select value={adminRole} onValueChange={(value) => value && setAdminRole(value as "مشرف" | "مسؤول")}>
+                  <SelectTrigger size="sm" className="h-9 min-w-24 justify-between bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-800">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectItem value="مشرف">مشرف</SelectItem>
+                    <SelectItem value="مسؤول">مسؤول</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Input
                   value={adminInput}
                   onChange={(e) => setAdminInput(e.target.value)}
@@ -503,7 +522,7 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                       handleSendAdminMessage()
                     }
                   }}
-                  placeholder="اكتب رسالة كمشرف..."
+                  placeholder={`اكتب رسالة ك${adminRole}...`}
                   className="flex-1 text-sm"
                   disabled={isSending}
                   dir="rtl"
