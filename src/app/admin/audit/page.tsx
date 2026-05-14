@@ -53,6 +53,7 @@ const EVENT_TYPE_CONFIG: Record<string, { label: string; icon: React.ComponentTy
   forbidden_access: { label: "وصول ممنوع",     icon: UserX,        color: "bg-rose-500/10 text-rose-600" },
   token_abuse:      { label: "إساءة توكن",     icon: AlertTriangle,color: "bg-orange-600/10 text-orange-700" },
   invalid_input:    { label: "إدخال غير صالح", icon: Info,         color: "bg-gray-500/10 text-gray-600" },
+  ip_block:         { label: "حظر IP",         icon: Ban,          color: "bg-red-700/10 text-red-800" },
 }
 
 const SEVERITY_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -92,6 +93,7 @@ const EVENT_FILTERS = [
   { value: "spam", label: "سبام" },
   { value: "attack", label: "هجوم" },
   { value: "suspicious", label: "مشبوه" },
+  { value: "ip_block", label: "حظر IP" },
   { value: "admin_action", label: "إداري" },
   { value: "forbidden_access", label: "وصول ممنوع" },
 ]

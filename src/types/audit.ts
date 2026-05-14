@@ -38,6 +38,7 @@ export interface AuditStats {
     suspicious: number
     admin_action: number
     forbidden_access: number
+    ip_block: number
   }
   unique_ips: number
 }
