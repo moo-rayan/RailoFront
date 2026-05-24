@@ -121,6 +121,7 @@ export default function NewsPage() {
                 <TableHead className="w-20">الصورة</TableHead>
                 <TableHead>العنوان</TableHead>
                 <TableHead className="w-24">الحالة</TableHead>
+                <TableHead className="w-28">المشاهدون</TableHead>
                 <TableHead className="w-40">تاريخ النشر</TableHead>
                 <TableHead className="w-40">تاريخ الإنشاء</TableHead>
                 <TableHead className="w-32">الإجراءات</TableHead>
@@ -129,13 +130,13 @@ export default function NewsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     جارٍ التحميل...
                   </TableCell>
                 </TableRow>
               ) : filteredArticles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     لا توجد أخبار
                   </TableCell>
                 </TableRow>
@@ -163,6 +164,12 @@ export default function NewsPage() {
                       <Badge variant={article.is_published ? "default" : "secondary"}>
                         {article.is_published ? "منشور" : "مسودة"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm font-semibold text-foreground">
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                        <span>{article.view_count.toLocaleString("ar-EG")}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {article.published_at

@@ -9,6 +9,7 @@ export interface NewsArticle {
   published_at: string | null
   created_at: string
   updated_at: string
+  view_count: number
 }
 
 export interface NewsList {
