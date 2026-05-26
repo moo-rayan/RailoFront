@@ -10,6 +10,11 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,6 +37,7 @@ import {
   Shield,
   Trash2,
   Reply,
+  SmilePlus,
 } from "lucide-react"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,6 +71,33 @@ function normalizeAdminLabel(name?: string | null) {
   if (trimmed === "مسؤول") return "مسؤول"
   return "مشرف"
 }
+
+function messageText(msg: ChatMessage) {
+  return msg.admin_text ?? msg.text
+}
+
+const quickEmojis = [
+  "😊",
+  "😂",
+  "❤️",
+  "🙏",
+  "👍",
+  "👌",
+  "🚆",
+  "📍",
+  "⚠️",
+  "✅",
+  "❌",
+  "⏰",
+  "🎫",
+  "🧳",
+  "🆘",
+  "💬",
+  "🌟",
+  "👏",
+  "😢",
+  "🤲",
+]
 
 // ── Chat Panel Props ─────────────────────────────────────────────────────────
 
@@ -303,6 +336,10 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
     }
   }, [adminInput, adminRole, isSending, replyToMessage, trainId])
 
+  const insertEmoji = useCallback((emoji: string) => {
+    setAdminInput(prev => `${prev}${emoji}`)
+  }, [])
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -437,7 +474,7 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                           {msg.text}
                         </div>
                       ) : msg.type === "admin" || msg.is_admin ? (
-                        <div className="group w-full flex gap-2 items-start p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 relative">
+                        <div className="w-full flex gap-2 items-start p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
                           <div className="h-7 w-7 shrink-0 mt-0.5 rounded-full bg-amber-500 flex items-center justify-center">
                             <Shield className="h-3.5 w-3.5 text-white" />
                           </div>
@@ -460,26 +497,28 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                                 </div>
                               </div>
                             )}
-                            <p className="text-sm break-words font-medium text-amber-900 dark:text-amber-200">{msg.text}</p>
+                            <p className="text-sm break-words font-medium text-amber-900 dark:text-amber-200">{messageText(msg)}</p>
                           </div>
-                          <button
-                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1.5 left-8 p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-500 hover:text-amber-700"
-                            title="رد على الرسالة"
-                            onClick={() => setReplyToMessage(msg)}
-                          >
-                            <Reply className="h-3 w-3" />
-                          </button>
-                          <button
-                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1.5 left-1.5 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600"
-                            title="حذف الرسالة"
-                            onClick={() => deleteMsgMutation.mutate(msg.id)}
-                            disabled={deleteMsgMutation.isPending}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          <div className="flex shrink-0 items-center gap-1 self-start">
+                            <button
+                              className="rounded p-1 text-amber-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
+                              title="رد على الرسالة"
+                              onClick={() => setReplyToMessage(msg)}
+                            >
+                              <Reply className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="rounded p-1 text-red-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
+                              title="حذف الرسالة"
+                              onClick={() => deleteMsgMutation.mutate(msg.id)}
+                              disabled={deleteMsgMutation.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       ) : (
-                        <div className="group flex gap-2 items-start relative">
+                        <div className="flex w-full gap-2 items-start">
                           <Avatar
                             className="h-7 w-7 shrink-0 mt-0.5 cursor-pointer ring-2 ring-transparent hover:ring-red-400 transition-all"
                             title={`حظر ${msg.user_name || "مجهول"}`}
@@ -527,21 +566,23 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                             )}
                             <p className="text-sm break-words">{msg.text}</p>
                           </div>
-                          <button
-                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 left-8 p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-400 hover:text-blue-600"
-                            title="رد على الرسالة"
-                            onClick={() => setReplyToMessage(msg)}
-                          >
-                            <Reply className="h-3 w-3" />
-                          </button>
-                          <button
-                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 left-0 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600"
-                            title="حذف الرسالة"
-                            onClick={() => deleteMsgMutation.mutate(msg.id)}
-                            disabled={deleteMsgMutation.isPending}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
+                          <div className="flex shrink-0 items-center gap-1 self-start">
+                            <button
+                              className="rounded p-1 text-blue-400 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/30"
+                              title="رد على الرسالة"
+                              onClick={() => setReplyToMessage(msg)}
+                            >
+                              <Reply className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="rounded p-1 text-red-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30"
+                              title="حذف الرسالة"
+                              onClick={() => deleteMsgMutation.mutate(msg.id)}
+                              disabled={deleteMsgMutation.isPending}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -559,7 +600,7 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                         رد على {replyToMessage.user_name || "مجهول"}
                       </div>
                       <div className="truncate text-muted-foreground">
-                        {replyToMessage.text}
+                        {messageText(replyToMessage)}
                       </div>
                     </div>
                     <button
@@ -595,6 +636,28 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                     disabled={isSending}
                     dir="rtl"
                   />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background text-amber-600 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/20"
+                      title="إضافة إيموجي"
+                    >
+                      <SmilePlus className="h-4 w-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top" className="w-56 p-2">
+                      <div className="grid grid-cols-5 gap-1">
+                        {quickEmojis.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className="flex h-9 w-9 items-center justify-center rounded-md text-lg transition-colors hover:bg-muted"
+                            onClick={() => insertEmoji(emoji)}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     size="sm"
                     className="h-9 gap-1.5 bg-amber-500 hover:bg-amber-600"

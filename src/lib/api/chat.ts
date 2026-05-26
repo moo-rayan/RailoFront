@@ -6,6 +6,7 @@ export interface ChatMessage {
   user_name: string;
   user_avatar: string;
   text: string;
+  admin_text?: string;
   type: string; // normal | emergency | lost_item | found_item | ticket_sale | admin
   is_pinned: boolean;
   is_admin?: boolean;
@@ -126,7 +127,7 @@ export const chatApi = {
             reply_to: {
               message_id: replyTo.id,
               user_name: replyTo.user_name,
-              text: replyTo.text,
+              text: replyTo.admin_text ?? replyTo.text,
             },
           }
         : {}),
