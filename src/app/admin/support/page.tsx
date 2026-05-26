@@ -194,8 +194,8 @@ export default function SupportPage() {
   const categoryEntries = useMemo(() => Object.entries(CATEGORY_LABELS), [])
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <Tabs defaultValue="contacts" dir="rtl" className="space-y-6">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
@@ -207,9 +207,25 @@ export default function SupportPage() {
             </div>
           </div>
         </div>
-        <Badge variant={totalOpenCount > 0 ? "destructive" : "secondary"} className="w-fit px-3 py-1">
-          {totalOpenCount > 0 ? `${totalOpenCount} عنصر جديد` : "لا توجد عناصر جديدة"}
-        </Badge>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Badge variant={totalOpenCount > 0 ? "destructive" : "secondary"} className="w-fit px-3 py-1">
+            {totalOpenCount > 0 ? `${totalOpenCount} عنصر جديد` : "لا توجد عناصر جديدة"}
+          </Badge>
+          <TabsList className="h-auto w-fit rounded-xl border bg-card p-1">
+            <TabsTrigger value="contacts" className="gap-1.5 rounded-lg px-3 py-2">
+              <Mail className="h-4 w-4" /> رسائل التواصل
+              {newContactsCount > 0 && (
+                <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">{newContactsCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="gap-1.5 rounded-lg px-3 py-2">
+              <Bug className="h-4 w-4" /> بلاغات المشاكل
+              {newReportsCount > 0 && (
+                <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">{newReportsCount}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
       </div>
 
       {/* Stats */}
@@ -219,22 +235,6 @@ export default function SupportPage() {
         <StatCard icon={Clock} value={newContactsCount} label="رسائل جديدة" tone="amber" />
         <StatCard icon={AlertCircle} value={newReportsCount} label="بلاغات جديدة" tone="orange" />
       </div>
-
-      <Tabs defaultValue="contacts" dir="rtl">
-        <TabsList className="h-auto rounded-xl p-1">
-          <TabsTrigger value="contacts" className="gap-1.5">
-            <Mail className="h-4 w-4" /> رسائل التواصل
-            {newContactsCount > 0 && (
-              <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">{newContactsCount}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1.5">
-            <Bug className="h-4 w-4" /> بلاغات المشاكل
-            {newReportsCount > 0 && (
-              <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">{newReportsCount}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
 
         {/* ── Contacts Tab ── */}
         <TabsContent value="contacts" className="mt-4">
@@ -434,7 +434,7 @@ export default function SupportPage() {
             </div>
           )}
         </TabsContent>
-      </Tabs>
+      
 
       {/* Notes Dialog */}
       <Dialog open={notesDialog.open} onOpenChange={(o) => setNotesDialog({ ...notesDialog, open: o })}>
@@ -457,6 +457,6 @@ export default function SupportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Tabs>
   )
 }
