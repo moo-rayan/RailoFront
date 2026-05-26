@@ -48,6 +48,7 @@ export interface LiveRoom {
   empty_since: number | null;
   is_historical?: boolean;
   wrong_location_reports?: number;
+  chat_message_count?: number;
   crowd_crowded?: number;
   crowd_not_crowded?: number;
 }

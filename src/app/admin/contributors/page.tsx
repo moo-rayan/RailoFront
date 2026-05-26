@@ -23,6 +23,7 @@ import {
   Headphones,
   Bell,
   MapPinOff,
+  MessageCircle,
   UserCheck,
 } from "lucide-react"
 import { useAuthStore } from "@/lib/stores/auth-store"
@@ -247,6 +248,13 @@ export default function ContributorsPage() {
                       <Hourglass className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="font-medium">{room.waiting_count}</span>
                       <span className="text-muted-foreground">انتظار</span>
+                    </div>
+                  )}
+                  {(room.chat_message_count ?? 0) > 0 && (
+                    <div className="flex items-center gap-1">
+                      <MessageCircle className="h-3.5 w-3.5 text-sky-500" />
+                      <span className="font-medium text-sky-600">{room.chat_message_count}</span>
+                      <span className="text-muted-foreground">رسالة</span>
                     </div>
                   )}
                   {room.speed > 0 && (

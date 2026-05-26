@@ -5,7 +5,7 @@ import { dashboardApi } from "@/lib/api/contributors"
 import { fetchOnlineFareStats } from "@/lib/api/fares"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Train, Calendar, Radio, MapPinOff, DollarSign } from "lucide-react"
+import { MapPin, Train, Calendar, Radio, MapPinOff, DollarSign, MessageCircle } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserStatsSection } from "@/components/admin/user-stats-section"
 
@@ -141,6 +141,12 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-1 text-xs text-red-600 bg-red-50 dark:bg-red-950/20 rounded px-1.5 py-0.5">
                         <MapPinOff className="h-3 w-3" />
                         <span>{room.wrong_location_reports}</span>
+                      </div>
+                    )}
+                    {(room.chat_message_count ?? 0) > 0 && (
+                      <div className="flex items-center gap-1 text-xs text-sky-600 bg-sky-50 dark:bg-sky-950/20 rounded px-1.5 py-0.5">
+                        <MessageCircle className="h-3 w-3" />
+                        <span>{room.chat_message_count}</span>
                       </div>
                     )}
                     {room.speed > 0 && (

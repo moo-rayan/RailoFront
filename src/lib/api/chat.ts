@@ -6,9 +6,12 @@ export interface ChatMessage {
   user_name: string;
   user_avatar: string;
   text: string;
-  type: string; // normal | lost_item | found_item | admin
+  type: string; // normal | emergency | lost_item | found_item | ticket_sale | admin
   is_pinned: boolean;
   is_admin?: boolean;
+  reply_to_message_id?: string;
+  reply_to_user_name?: string;
+  reply_to_text?: string;
   timestamp: string;
 }
 
@@ -109,10 +112,24 @@ export const chatApi = {
     return response.data as { total: number; bans: ChatBan[] };
   },
 
-  sendAdminMessage: async (trainId: string, text: string, adminName = 'مشرف') => {
+  sendAdminMessage: async (
+    trainId: string,
+    text: string,
+    adminName = 'مشرف',
+    replyTo?: ChatMessage | null,
+  ) => {
     const response = await apiClient.post(`/admin/chat/${trainId}/send`, {
       text,
       admin_name: adminName,
+      ...(replyTo
+        ? {
+            reply_to: {
+              message_id: replyTo.id,
+              user_name: replyTo.user_name,
+              text: replyTo.text,
+            },
+          }
+        : {}),
     });
     return response.data as { ok: boolean; message?: ChatMessage };
   },

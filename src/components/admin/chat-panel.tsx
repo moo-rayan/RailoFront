@@ -31,6 +31,7 @@ import {
   Send,
   Shield,
   Trash2,
+  Reply,
 } from "lucide-react"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -89,6 +90,7 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
   const [adminInput, setAdminInput] = useState("")
   const [adminRole, setAdminRole] = useState<"مشرف" | "مسؤول">("مشرف")
   const [isSending, setIsSending] = useState(false)
+  const [replyToMessage, setReplyToMessage] = useState<ChatMessage | null>(null)
 
   // ── HTTP polling fallback (catches messages if WS drops) ──────────
 
@@ -156,8 +158,10 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
           }])
         } else if (data.type === "message_deleted") {
           setMessages(prev => prev.filter(m => m.id !== data.data.message_id))
+          setReplyToMessage(prev => prev?.id === data.data.message_id ? null : prev)
         } else if (data.type === "chat_cleared") {
           setMessages([])
+          setReplyToMessage(null)
         }
       } catch {
         // ignore parse errors
@@ -268,6 +272,7 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
     mutationFn: (messageId: string) => chatApi.deleteMessage(trainId, messageId),
     onSuccess: (_, messageId) => {
       setMessages(prev => prev.filter(m => m.id !== messageId))
+      setReplyToMessage(prev => prev?.id === messageId ? null : prev)
     },
   })
 
@@ -275,6 +280,7 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
     mutationFn: () => chatApi.clearChat(trainId),
     onSuccess: () => {
       setMessages([])
+      setReplyToMessage(null)
       queryClient.invalidateQueries({ queryKey: ["chat-messages-poll", trainId] })
     },
   })
@@ -287,14 +293,15 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
     setIsSending(true)
     try {
       // Send via REST — handles storage + broadcast to all users & admin observers
-      await chatApi.sendAdminMessage(trainId, text, adminRole)
+      await chatApi.sendAdminMessage(trainId, text, adminRole, replyToMessage)
       setAdminInput("")
+      setReplyToMessage(null)
     } catch (err) {
       console.error("Failed to send admin message:", err)
     } finally {
       setIsSending(false)
     }
-  }, [adminInput, adminRole, isSending, trainId])
+  }, [adminInput, adminRole, isSending, replyToMessage, trainId])
 
   // ── Render ────────────────────────────────────────────────────────────
 
@@ -443,8 +450,25 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                                 {formatChatTime(msg.timestamp)}
                               </span>
                             </div>
+                            {msg.reply_to_text && (
+                              <div className="mt-1 mb-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-1 text-xs">
+                                <div className="font-semibold text-amber-600 dark:text-amber-300 truncate">
+                                  {msg.reply_to_user_name || "رد"}
+                                </div>
+                                <div className="text-muted-foreground truncate">
+                                  {msg.reply_to_text}
+                                </div>
+                              </div>
+                            )}
                             <p className="text-sm break-words font-medium text-amber-900 dark:text-amber-200">{msg.text}</p>
                           </div>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1.5 left-8 p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-500 hover:text-amber-700"
+                            title="رد على الرسالة"
+                            onClick={() => setReplyToMessage(msg)}
+                          >
+                            <Reply className="h-3 w-3" />
+                          </button>
                           <button
                             className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1.5 left-1.5 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600"
                             title="حذف الرسالة"
@@ -481,12 +505,35 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                               {msg.type === "lost_item" && (
                                 <Badge variant="destructive" className="text-[9px] h-4 px-1">مفقود</Badge>
                               )}
+                              {msg.type === "emergency" && (
+                                <Badge className="bg-orange-500 text-white text-[9px] h-4 px-1">استغاثة</Badge>
+                              )}
                               {msg.type === "found_item" && (
                                 <Badge className="bg-green-500 text-[9px] h-4 px-1">موجود</Badge>
                               )}
+                              {msg.type === "ticket_sale" && (
+                                <Badge className="bg-yellow-500 text-black text-[9px] h-4 px-1">بيع تذكرة</Badge>
+                              )}
                             </div>
+                            {msg.reply_to_text && (
+                              <div className="mt-1 mb-1 rounded-md border border-blue-500/25 bg-blue-500/10 px-2 py-1 text-xs">
+                                <div className="font-semibold text-blue-400 truncate">
+                                  {msg.reply_to_user_name || "رد"}
+                                </div>
+                                <div className="text-muted-foreground truncate">
+                                  {msg.reply_to_text}
+                                </div>
+                              </div>
+                            )}
                             <p className="text-sm break-words">{msg.text}</p>
                           </div>
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 left-8 p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-400 hover:text-blue-600"
+                            title="رد على الرسالة"
+                            onClick={() => setReplyToMessage(msg)}
+                          >
+                            <Reply className="h-3 w-3" />
+                          </button>
                           <button
                             className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 left-0 p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-400 hover:text-red-600"
                             title="حذف الرسالة"
@@ -503,39 +550,61 @@ export function ChatPanel({ trainId }: ChatPanelProps) {
                 <div ref={messagesEndRef} />
               </div>
               {/* Admin message input */}
-              <div className="border-t p-3 flex items-center gap-2">
-                <Select value={adminRole} onValueChange={(value) => value && setAdminRole(value as "مشرف" | "مسؤول")}>
-                  <SelectTrigger size="sm" className="h-9 min-w-24 justify-between bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-800">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent align="end">
-                    <SelectItem value="مشرف">مشرف</SelectItem>
-                    <SelectItem value="مسؤول">مسؤول</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={adminInput}
-                  onChange={(e) => setAdminInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey && adminInput.trim()) {
-                      e.preventDefault()
-                      handleSendAdminMessage()
-                    }
-                  }}
-                  placeholder={`اكتب رسالة ك${adminRole}...`}
-                  className="flex-1 text-sm"
-                  disabled={isSending}
-                  dir="rtl"
-                />
-                <Button
-                  size="sm"
-                  className="h-9 gap-1.5 bg-amber-500 hover:bg-amber-600"
-                  onClick={handleSendAdminMessage}
-                  disabled={isSending || !adminInput.trim()}
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  إرسال
-                </Button>
+              <div className="border-t p-3 space-y-2">
+                {replyToMessage && (
+                  <div className="flex items-start gap-2 rounded-lg border border-blue-500/25 bg-blue-500/10 px-3 py-2 text-xs">
+                    <Reply className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-blue-500">
+                        رد على {replyToMessage.user_name || "مجهول"}
+                      </div>
+                      <div className="truncate text-muted-foreground">
+                        {replyToMessage.text}
+                      </div>
+                    </div>
+                    <button
+                      className="rounded p-1 text-muted-foreground hover:bg-blue-500/10 hover:text-blue-500"
+                      title="إلغاء الرد"
+                      onClick={() => setReplyToMessage(null)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Select value={adminRole} onValueChange={(value) => value && setAdminRole(value as "مشرف" | "مسؤول")}>
+                    <SelectTrigger size="sm" className="h-9 min-w-24 justify-between bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-300 dark:border-amber-800">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="end">
+                      <SelectItem value="مشرف">مشرف</SelectItem>
+                      <SelectItem value="مسؤول">مسؤول</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={adminInput}
+                    onChange={(e) => setAdminInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && adminInput.trim()) {
+                        e.preventDefault()
+                        handleSendAdminMessage()
+                      }
+                    }}
+                    placeholder={`اكتب رسالة ك${adminRole}...`}
+                    className="flex-1 text-sm"
+                    disabled={isSending}
+                    dir="rtl"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-9 gap-1.5 bg-amber-500 hover:bg-amber-600"
+                    onClick={handleSendAdminMessage}
+                    disabled={isSending || !adminInput.trim()}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    إرسال
+                  </Button>
+                </div>
               </div>
             </div>
           )}
