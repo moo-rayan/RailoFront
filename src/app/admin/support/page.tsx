@@ -1,15 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { supportApi, type ContactMessage, type ProblemReport } from "@/lib/api/support"
 import {
   Mail, Bug, Clock, CheckCircle2, AlertCircle, MessageSquare,
-  ChevronDown, User, Filter,
+  ChevronDown, User, Filter, Inbox, ClipboardList, AtSign, CalendarClock,
+  type LucideIcon,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -37,6 +38,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "أخرى",
 }
 
+const statusOptions = ["all", "new", "in_progress", "resolved", "closed"]
+
+const statCardStyles = {
+  blue: "bg-blue-500/10 text-blue-500",
+  red: "bg-red-500/10 text-red-500",
+  amber: "bg-amber-500/10 text-amber-500",
+  orange: "bg-orange-500/10 text-orange-500",
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso)
   const now = Date.now()
@@ -58,6 +68,80 @@ function StatusBadge({ status }: { status: string }) {
       <span className={`w-1.5 h-1.5 rounded-full ${s.color}`} />
       {s.label}
     </Badge>
+  )
+}
+
+function StatCard({
+  icon: Icon,
+  value,
+  label,
+  tone,
+}: {
+  icon: LucideIcon
+  value: number
+  label: string
+  tone: keyof typeof statCardStyles
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${statCardStyles[tone]}`}>
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold leading-none">{value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function StatusFilter({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-xl border bg-card p-1">
+      {statusOptions.map((status) => (
+        <Button
+          key={status}
+          variant={value === status ? "default" : "ghost"}
+          size="sm"
+          className="h-8 rounded-lg px-3 text-xs"
+          onClick={() => onChange(status)}
+        >
+          {status === "all" ? "الكل" : STATUS_MAP[status]?.label ?? status}
+        </Button>
+      ))}
+    </div>
+  )
+}
+
+function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+          <Icon className="h-7 w-7 text-muted-foreground" />
+        </div>
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -106,56 +190,38 @@ export default function SupportPage() {
 
   const newContactsCount = contacts?.items.filter(c => c.status === "new").length ?? 0
   const newReportsCount = reports?.items.filter(r => r.status === "new").length ?? 0
+  const totalOpenCount = newContactsCount + newReportsCount
+  const categoryEntries = useMemo(() => Object.entries(CATEGORY_LABELS), [])
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">الدعم والتواصل</h1>
-        <p className="text-muted-foreground text-sm mt-1">إدارة رسائل التواصل وبلاغات المشاكل</p>
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <MessageSquare className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">الدعم والتواصل</h1>
+              <p className="text-sm text-muted-foreground">إدارة رسائل المستخدمين وبلاغات المشاكل من مكان واحد</p>
+            </div>
+          </div>
+        </div>
+        <Badge variant={totalOpenCount > 0 ? "destructive" : "secondary"} className="w-fit px-3 py-1">
+          {totalOpenCount > 0 ? `${totalOpenCount} عنصر جديد` : "لا توجد عناصر جديدة"}
+        </Badge>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-500/10"><Mail className="h-5 w-5 text-blue-500" /></div>
-            <div>
-              <p className="text-2xl font-bold">{contacts?.total ?? 0}</p>
-              <p className="text-xs text-muted-foreground">رسائل التواصل</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-red-500/10"><Bug className="h-5 w-5 text-red-500" /></div>
-            <div>
-              <p className="text-2xl font-bold">{reports?.total ?? 0}</p>
-              <p className="text-xs text-muted-foreground">بلاغات المشاكل</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500/10"><Clock className="h-5 w-5 text-amber-500" /></div>
-            <div>
-              <p className="text-2xl font-bold">{newContactsCount}</p>
-              <p className="text-xs text-muted-foreground">رسائل جديدة</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-orange-500/10"><AlertCircle className="h-5 w-5 text-orange-500" /></div>
-            <div>
-              <p className="text-2xl font-bold">{newReportsCount}</p>
-              <p className="text-xs text-muted-foreground">بلاغات جديدة</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard icon={Mail} value={contacts?.total ?? 0} label="رسائل التواصل" tone="blue" />
+        <StatCard icon={Bug} value={reports?.total ?? 0} label="بلاغات المشاكل" tone="red" />
+        <StatCard icon={Clock} value={newContactsCount} label="رسائل جديدة" tone="amber" />
+        <StatCard icon={AlertCircle} value={newReportsCount} label="بلاغات جديدة" tone="orange" />
       </div>
 
       <Tabs defaultValue="contacts" dir="rtl">
-        <TabsList>
+        <TabsList className="h-auto rounded-xl p-1">
           <TabsTrigger value="contacts" className="gap-1.5">
             <Mail className="h-4 w-4" /> رسائل التواصل
             {newContactsCount > 0 && (
@@ -172,52 +238,56 @@ export default function SupportPage() {
 
         {/* ── Contacts Tab ── */}
         <TabsContent value="contacts" className="mt-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <div className="flex gap-1">
-              {["all", "new", "in_progress", "resolved", "closed"].map(s => (
-                <Button
-                  key={s}
-                  variant={contactFilter === s ? "default" : "outline"}
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => setContactFilter(s)}
-                >
-                  {s === "all" ? "الكل" : STATUS_MAP[s]?.label ?? s}
-                </Button>
-              ))}
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              تصفية الرسائل
             </div>
+            <StatusFilter value={contactFilter} onChange={setContactFilter} />
           </div>
 
           {loadingContacts ? (
-            <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>
+            <EmptyState icon={Inbox} title="جاري تحميل الرسائل" description="يتم تحديث بيانات الدعم الآن" />
           ) : !contacts?.items.length ? (
-            <div className="text-center py-12 text-muted-foreground">لا توجد رسائل</div>
+            <EmptyState icon={Inbox} title="لا توجد رسائل" description="لا توجد رسائل تواصل مطابقة للتصفية الحالية" />
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-3">
               {contacts.items.map((c: ContactMessage) => (
-                <Card key={c.id}>
+                <Card key={c.id} className="overflow-hidden">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="font-medium text-sm truncate">{c.display_name}</span>
-                          <span className="text-xs text-muted-foreground">{c.email}</span>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                           <StatusBadge status={c.status} />
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            {formatDate(c.created_at)}
+                          </span>
                         </div>
-                        <h3 className="font-semibold text-sm">{c.subject}</h3>
-                        <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{c.message}</p>
+                        <h3 className="text-base font-semibold">{c.subject}</h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <User className="h-3.5 w-3.5" />
+                            {c.display_name || "مستخدم"}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <AtSign className="h-3.5 w-3.5" />
+                            {c.email || "لا يوجد بريد"}
+                          </span>
+                        </div>
+                        <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm leading-6 text-foreground/90">
+                          {c.message}
+                        </p>
                         {c.admin_notes && (
-                          <div className="mt-2 p-2 rounded bg-muted text-xs">
-                            <span className="font-medium">ملاحظات الإدارة:</span> {c.admin_notes}
+                          <div className="mt-3 rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs">
+                            <span className="font-semibold text-primary">ملاحظات الإدارة:</span>{" "}
+                            <span className="text-muted-foreground">{c.admin_notes}</span>
                           </div>
                         )}
-                        <p className="text-[10px] text-muted-foreground mt-2">{formatDate(c.created_at)}</p>
                       </div>
-                      <div className="flex gap-1 shrink-0">
+                      <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border border-input bg-background px-2 h-7 text-xs font-medium hover:bg-accent hover:text-accent-foreground">
+                          <DropdownMenuTrigger className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-accent hover:text-accent-foreground">
                             الحالة <ChevronDown className="h-3 w-3" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -235,7 +305,7 @@ export default function SupportPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-xs gap-1"
+                          className="h-8 text-xs gap-1"
                           onClick={() => {
                             setNotesText(c.admin_notes || "")
                             setNotesDialog({ open: true, type: "contact", id: c.id, currentNotes: c.admin_notes || "" })
@@ -254,37 +324,29 @@ export default function SupportPage() {
 
         {/* ── Reports Tab ── */}
         <TabsContent value="reports" className="mt-4">
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <div className="flex gap-1">
-              {["all", "new", "in_progress", "resolved", "closed"].map(s => (
-                <Button
-                  key={s}
-                  variant={reportFilter === s ? "default" : "outline"}
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => setReportFilter(s)}
-                >
-                  {s === "all" ? "الكل" : STATUS_MAP[s]?.label ?? s}
-                </Button>
-              ))}
+          <div className="mb-4 space-y-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                تصفية البلاغات
+              </div>
+              <StatusFilter value={reportFilter} onChange={setReportFilter} />
             </div>
-            <span className="text-muted-foreground text-xs">|</span>
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex flex-wrap gap-1.5 rounded-xl border bg-card p-1">
               <Button
-                variant={reportCatFilter === "all" ? "default" : "outline"}
+                variant={reportCatFilter === "all" ? "default" : "ghost"}
                 size="sm"
-                className="text-xs h-7"
+                className="h-8 rounded-lg px-3 text-xs"
                 onClick={() => setReportCatFilter("all")}
               >
                 كل الفئات
               </Button>
-              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+              {categoryEntries.map(([key, label]) => (
                 <Button
                   key={key}
-                  variant={reportCatFilter === key ? "default" : "outline"}
+                  variant={reportCatFilter === key ? "default" : "ghost"}
                   size="sm"
-                  className="text-xs h-7"
+                  className="h-8 rounded-lg px-3 text-xs"
                   onClick={() => setReportCatFilter(key)}
                 >
                   {label}
@@ -294,37 +356,51 @@ export default function SupportPage() {
           </div>
 
           {loadingReports ? (
-            <div className="text-center py-12 text-muted-foreground">جاري التحميل...</div>
+            <EmptyState icon={ClipboardList} title="جاري تحميل البلاغات" description="يتم تحديث بلاغات المشاكل الآن" />
           ) : !reports?.items.length ? (
-            <div className="text-center py-12 text-muted-foreground">لا توجد بلاغات</div>
+            <EmptyState icon={ClipboardList} title="لا توجد بلاغات" description="لا توجد بلاغات مطابقة للتصفية الحالية" />
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-3">
               {reports.items.map((r: ProblemReport) => (
-                <Card key={r.id}>
+                <Card key={r.id} className="overflow-hidden">
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="font-medium text-sm truncate">{r.display_name}</span>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="text-[10px]">
                             {CATEGORY_LABELS[r.category] || r.category_label}
                           </Badge>
                           <StatusBadge status={r.status} />
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            {formatDate(r.created_at)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <User className="h-3.5 w-3.5" />
+                            {r.display_name || "مستخدم"}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <AtSign className="h-3.5 w-3.5" />
+                            {r.email || "لا يوجد بريد"}
+                          </span>
                         </div>
                         {r.details && (
-                          <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{r.details}</p>
+                          <p className="mt-3 whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm leading-6 text-foreground/90">
+                            {r.details}
+                          </p>
                         )}
                         {r.admin_notes && (
-                          <div className="mt-2 p-2 rounded bg-muted text-xs">
-                            <span className="font-medium">ملاحظات الإدارة:</span> {r.admin_notes}
+                          <div className="mt-3 rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs">
+                            <span className="font-semibold text-primary">ملاحظات الإدارة:</span>{" "}
+                            <span className="text-muted-foreground">{r.admin_notes}</span>
                           </div>
                         )}
-                        <p className="text-[10px] text-muted-foreground mt-2">{formatDate(r.created_at)}</p>
                       </div>
-                      <div className="flex gap-1 shrink-0">
+                      <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border border-input bg-background px-2 h-7 text-xs font-medium hover:bg-accent hover:text-accent-foreground">
+                          <DropdownMenuTrigger className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-accent hover:text-accent-foreground">
                             الحالة <ChevronDown className="h-3 w-3" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
@@ -342,7 +418,7 @@ export default function SupportPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-7 text-xs gap-1"
+                          className="h-8 text-xs gap-1"
                           onClick={() => {
                             setNotesText(r.admin_notes || "")
                             setNotesDialog({ open: true, type: "report", id: r.id, currentNotes: r.admin_notes || "" })

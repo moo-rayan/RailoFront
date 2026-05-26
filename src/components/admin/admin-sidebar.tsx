@@ -104,7 +104,7 @@ const sidebarItems: SidebarItem[] = [
     title: "الدعم والتواصل",
     href: "/admin/support",
     icon: HeadsetIcon,
-    minLevel: "fulladmin",
+    minLevel: "monitor",
   },
   {
     title: "السجل الأمني",
@@ -271,4 +271,3 @@ export function MobileSidebarTrigger() {
     </Sheet>
   )
 }
-
