@@ -26,6 +26,7 @@ import {
   Menu,
   DollarSign,
   Newspaper,
+  Megaphone,
 } from "lucide-react"
 import type { AdminLevel } from "@/lib/stores/auth-store"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -98,6 +99,12 @@ const sidebarItems: SidebarItem[] = [
     title: "الإشعارات",
     href: "/admin/notifications",
     icon: Bell,
+    minLevel: "fulladmin",
+  },
+  {
+    title: "إعلانات التطبيق",
+    href: "/admin/announcements",
+    icon: Megaphone,
     minLevel: "fulladmin",
   },
   {
