@@ -18,6 +18,7 @@ import {
   Smartphone,
   Shield,
   ShieldAlert,
+  ShieldOff,
   FileText,
   UserX,
   UsersRound,
@@ -112,6 +113,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/support",
     icon: HeadsetIcon,
     minLevel: "monitor",
+  },
+  {
+    title: "المحظورين",
+    href: "/admin/bans",
+    icon: ShieldOff,
+    minLevel: "fulladmin",
   },
   {
     title: "السجل الأمني",

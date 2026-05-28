@@ -113,6 +113,9 @@ export interface SuspensionListResponse {
 
 export interface BanInfo {
   user_id: string;
+  user_name?: string;
+  user_email?: string;
+  user_avatar?: string;
   reason: string;
   banned_at: number;
   duration_minutes: number;
