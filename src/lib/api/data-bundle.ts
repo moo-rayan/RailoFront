@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient } from "./client";
 
 export interface BundleVersionInfo {
   version: string;
@@ -24,17 +24,17 @@ export interface SeatLayoutsResponse {
 
 export const dataBundleApi = {
   getVersion: async (): Promise<BundleVersionInfo> => {
-    const response = await apiClient.get('/data/version');
+    const response = await apiClient.get("/data/version");
     return response.data;
   },
 
   getSeatLayouts: async (): Promise<SeatLayoutsResponse> => {
-    const response = await apiClient.get('/data/seat-layouts');
+    const response = await apiClient.get("/data/seat-layouts");
     return response.data;
   },
 
   rebuild: async (): Promise<BundleRebuildResult> => {
-    const response = await apiClient.post('/data/rebuild', null, {
+    const response = await apiClient.post("/data/rebuild", null, {
       timeout: 300_000,
     });
     return response.data;

@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { trainsApi } from "@/lib/api/trains"
-import { dataBundleApi } from "@/lib/api/data-bundle"
-import { Train } from "@/types"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { trainsApi } from "@/lib/api/trains";
+import { dataBundleApi } from "@/lib/api/data-bundle";
+import { Train } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -14,12 +14,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Search, Edit, Trash2, Train as TrainIcon, MapPin, StickyNote, Armchair } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { TrainFormDialog } from "@/components/admin/train-form-dialog"
-import { TrainStopsDialog } from "@/components/admin/train-stops-dialog"
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Train as TrainIcon,
+  MapPin,
+  StickyNote,
+  Armchair,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrainFormDialog } from "@/components/admin/train-form-dialog";
+import { TrainStopsDialog } from "@/components/admin/train-stops-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,20 +39,24 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { toast } from "sonner"
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 export default function TrainsPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [stopsDialogOpen, setStopsDialogOpen] = useState(false)
-  const [selectedTrain, setSelectedTrain] = useState<Train | undefined>()
-  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create")
-  const queryClient = useQueryClient()
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [stopsDialogOpen, setStopsDialogOpen] = useState(false);
+  const [selectedTrain, setSelectedTrain] = useState<Train | undefined>();
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const queryClient = useQueryClient();
 
   // Fetch trains
-  const { data: trainsData, isLoading, error } = useQuery({
+  const {
+    data: trainsData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["trains"],
     queryFn: async () => {
       console.log("Fetching trains...");
@@ -57,30 +71,34 @@ export default function TrainsPage() {
     },
     retry: 2,
     staleTime: 30000,
-  })
+  });
 
-  const trains = trainsData?.items ?? []
+  const trains = trainsData?.items ?? [];
 
-  const { data: seatLayoutsData, isLoading: seatLayoutsLoading, error: seatLayoutsError } = useQuery({
+  const {
+    data: seatLayoutsData,
+    isLoading: seatLayoutsLoading,
+    error: seatLayoutsError,
+  } = useQuery({
     queryKey: ["seat-layouts"],
     queryFn: dataBundleApi.getSeatLayouts,
     retry: 2,
     staleTime: 30000,
-  })
+  });
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: (trainNumber: string) => trainsApi.delete(trainNumber),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trains"] })
-      toast.success("تم حذف القطار بنجاح")
-      setDeleteDialogOpen(false)
-      setSelectedTrain(undefined)
+      queryClient.invalidateQueries({ queryKey: ["trains"] });
+      toast.success("تم حذف القطار بنجاح");
+      setDeleteDialogOpen(false);
+      setSelectedTrain(undefined);
     },
     onError: () => {
-      toast.error("حدث خطأ أثناء حذف القطار")
+      toast.error("حدث خطأ أثناء حذف القطار");
     },
-  })
+  });
 
   // Filter trains
   const filteredTrains = trains.filter(
@@ -89,59 +107,61 @@ export default function TrainsPage() {
       train.type_ar.includes(searchQuery) ||
       train.type_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
       train.start_station_ar.includes(searchQuery) ||
-      train.end_station_ar.includes(searchQuery)
-  )
+      train.end_station_ar.includes(searchQuery),
+  );
 
-  const trainsWithSeatLayouts = new Set(Object.keys(seatLayoutsData?.layouts ?? {}))
+  const trainsWithSeatLayouts = new Set(
+    Object.keys(seatLayoutsData?.layouts ?? {}),
+  );
   const trainsWithoutSeatLayouts = trains.filter(
-    (train) => !trainsWithSeatLayouts.has(train.train_id)
-  )
+    (train) => !trainsWithSeatLayouts.has(train.train_id),
+  );
   const filteredTrainsWithoutSeatLayouts = trainsWithoutSeatLayouts.filter(
     (train) =>
       train.train_id.includes(searchQuery) ||
       train.type_ar.includes(searchQuery) ||
       train.type_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
       train.start_station_ar.includes(searchQuery) ||
-      train.end_station_ar.includes(searchQuery)
-  )
+      train.end_station_ar.includes(searchQuery),
+  );
 
   const handleCreate = () => {
-    setSelectedTrain(undefined)
-    setDialogMode("create")
-    setDialogOpen(true)
-  }
+    setSelectedTrain(undefined);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
 
   const handleEdit = (train: Train) => {
-    setSelectedTrain(train)
-    setDialogMode("edit")
-    setDialogOpen(true)
-  }
+    setSelectedTrain(train);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
 
   const handleDeleteClick = (train: Train) => {
-    setSelectedTrain(train)
-    setDeleteDialogOpen(true)
-  }
+    setSelectedTrain(train);
+    setDeleteDialogOpen(true);
+  };
 
   const handleDeleteConfirm = () => {
     if (selectedTrain?.train_id) {
-      deleteMutation.mutate(selectedTrain.train_id)
+      deleteMutation.mutate(selectedTrain.train_id);
     }
-  }
+  };
 
   const handleViewStops = (train: Train) => {
-    setSelectedTrain(train)
-    setStopsDialogOpen(true)
-  }
+    setSelectedTrain(train);
+    setStopsDialogOpen(true);
+  };
 
   const getTrainTypeBadge = (type: string) => {
     const variants: Record<string, "default" | "secondary" | "outline"> = {
-      "روسي": "default",
-      "مكيف": "secondary",
-      "خاص": "outline",
-      "تالجو": "default",
-    }
-    return variants[type] || "secondary"
-  }
+      روسي: "default",
+      مكيف: "secondary",
+      خاص: "outline",
+      تالجو: "default",
+    };
+    return variants[type] || "secondary";
+  };
 
   return (
     <div className="space-y-6">
@@ -176,179 +196,249 @@ export default function TrainsPage() {
         </CardContent>
       </Card>
 
-      {/* Missing Seat Layouts */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Armchair className="h-5 w-5 text-primary" />
-              قطارات بدون توزيع مقاعد
-            </CardTitle>
-            <Badge variant={trainsWithoutSeatLayouts.length > 0 ? "secondary" : "default"} className="w-fit">
-              {seatLayoutsLoading ? "جاري الفحص..." : `${trainsWithoutSeatLayouts.length} قطار`}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {seatLayoutsError ? (
-            <div className="text-sm text-destructive">
-              تعذر تحميل بيانات توزيعات المقاعد
-            </div>
-          ) : seatLayoutsLoading || isLoading ? (
-            <div className="text-sm text-muted-foreground">جاري تحميل القائمة...</div>
-          ) : trainsWithoutSeatLayouts.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              كل القطارات المعروضة لديها توزيع مقاعد.
-            </div>
-          ) : filteredTrainsWithoutSeatLayouts.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              لا توجد قطارات بدون توزيع مطابقة للبحث الحالي.
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredTrainsWithoutSeatLayouts.slice(0, 24).map((train) => (
-                <div
-                  key={train.id}
-                  className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2"
+      <Tabs defaultValue="all" dir="rtl" className="flex flex-col gap-4">
+        <TabsList className="h-11 w-fit rounded-xl border bg-card p-1 shadow-sm">
+          <TabsTrigger
+            value="all"
+            className="h-9 gap-1.5 rounded-lg px-4 text-sm"
+          >
+            <TrainIcon className="h-4 w-4" />
+            كل القطارات
+          </TabsTrigger>
+          <TabsTrigger
+            value="missing-layouts"
+            className="h-9 gap-1.5 rounded-lg px-4 text-sm"
+          >
+            <Armchair className="h-4 w-4" />
+            بدون توزيع
+            {!seatLayoutsLoading && (
+              <Badge
+                variant="secondary"
+                className="mr-1 h-5 px-1.5 text-[10px]"
+              >
+                {trainsWithoutSeatLayouts.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="missing-layouts" className="mt-0">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Armchair className="h-5 w-5 text-primary" />
+                  قطارات بدون توزيع مقاعد
+                </CardTitle>
+                <Badge
+                  variant={
+                    trainsWithoutSeatLayouts.length > 0
+                      ? "secondary"
+                      : "default"
+                  }
+                  className="w-fit"
                 >
-                  <div className="min-w-0">
-                    <div className="font-mono text-sm font-semibold">{train.train_id}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {train.start_station_ar} - {train.end_station_ar}
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="shrink-0 whitespace-nowrap">
-                    {train.type_ar}
-                  </Badge>
+                  {seatLayoutsLoading
+                    ? "جاري الفحص..."
+                    : `${trainsWithoutSeatLayouts.length} قطار`}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {seatLayoutsError ? (
+                <div className="text-sm text-destructive">
+                  تعذر تحميل بيانات توزيعات المقاعد
                 </div>
-              ))}
-              {filteredTrainsWithoutSeatLayouts.length > 24 && (
-                <div className="flex items-center rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
-                  +{filteredTrainsWithoutSeatLayouts.length - 24} قطار آخر
+              ) : seatLayoutsLoading || isLoading ? (
+                <div className="text-sm text-muted-foreground">
+                  جاري تحميل القائمة...
+                </div>
+              ) : trainsWithoutSeatLayouts.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  كل القطارات المعروضة لديها توزيع مقاعد.
+                </div>
+              ) : filteredTrainsWithoutSeatLayouts.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  لا توجد قطارات بدون توزيع مطابقة للبحث الحالي.
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {filteredTrainsWithoutSeatLayouts.map((train) => (
+                    <div
+                      key={train.id}
+                      className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-mono text-sm font-semibold">
+                          {train.train_id}
+                        </div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {train.start_station_ar} - {train.end_station_ar}
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 whitespace-nowrap"
+                      >
+                        {train.type_ar}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Trains Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base md:text-lg">قائمة القطارات</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error ? (
-            <div className="text-center py-8">
-              <div className="text-destructive mb-2">حدث خطأ في تحميل البيانات</div>
-              <div className="text-sm text-muted-foreground">{error.message}</div>
-            </div>
-          ) : isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              جاري التحميل...
-            </div>
-          ) : (
-            <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">رقم القطار</TableHead>
-                    <TableHead className="text-right">النوع</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">من</TableHead>
-                    <TableHead className="text-right hidden md:table-cell">إلى</TableHead>
-                    <TableHead className="text-right hidden lg:table-cell">عدد المحطات</TableHead>
-                    <TableHead className="text-right hidden lg:table-cell">ملاحظات</TableHead>
-                    <TableHead className="text-right">الحالة</TableHead>
-                    <TableHead className="text-right">الإجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTrains.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        لا توجد قطارات
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredTrains.map((train) => (
-                      <TableRow key={train.id}>
-                        <TableCell className="font-medium font-mono">
-                          <div className="flex items-center gap-2">
-                            <TrainIcon className="h-4 w-4 text-primary shrink-0" />
-                            {train.train_id}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getTrainTypeBadge(train.type_ar)} className="whitespace-nowrap">
-                            {train.type_ar}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium hidden sm:table-cell">
-                          {train.start_station_ar}
-                        </TableCell>
-                        <TableCell className="font-medium hidden md:table-cell">
-                          {train.end_station_ar}
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <span className="text-sm text-muted-foreground">
-                            {train.stops_count} محطة
-                          </span>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          {train.note_ar ? (
-                            <div className="flex items-center gap-1.5 max-w-[200px]">
-                              <StickyNote className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <span className="text-sm text-muted-foreground truncate" title={train.note_ar}>
-                                {train.note_ar}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground/50">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={train.is_active ? "default" : "secondary"} className="whitespace-nowrap">
-                            {train.is_active ? "نشط" : "غير نشط"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1 md:gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleViewStops(train)}
-                              title="عرض وقفات القطار"
-                              className="h-8 w-8"
-                            >
-                              <MapPin className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(train)}
-                              className="h-8 w-8"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteClick(train)}
-                              className="h-8 w-8"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
+        <TabsContent value="all" className="mt-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base md:text-lg">
+                قائمة القطارات
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {error ? (
+                <div className="text-center py-8">
+                  <div className="text-destructive mb-2">
+                    حدث خطأ في تحميل البيانات
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {error.message}
+                  </div>
+                </div>
+              ) : isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  جاري التحميل...
+                </div>
+              ) : (
+                <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">رقم القطار</TableHead>
+                        <TableHead className="text-right">النوع</TableHead>
+                        <TableHead className="text-right hidden sm:table-cell">
+                          من
+                        </TableHead>
+                        <TableHead className="text-right hidden md:table-cell">
+                          إلى
+                        </TableHead>
+                        <TableHead className="text-right hidden lg:table-cell">
+                          عدد المحطات
+                        </TableHead>
+                        <TableHead className="text-right hidden lg:table-cell">
+                          ملاحظات
+                        </TableHead>
+                        <TableHead className="text-right">الحالة</TableHead>
+                        <TableHead className="text-right">الإجراءات</TableHead>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredTrains.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={8}
+                            className="text-center py-8 text-muted-foreground"
+                          >
+                            لا توجد قطارات
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredTrains.map((train) => (
+                          <TableRow key={train.id}>
+                            <TableCell className="font-medium font-mono">
+                              <div className="flex items-center gap-2">
+                                <TrainIcon className="h-4 w-4 text-primary shrink-0" />
+                                {train.train_id}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={getTrainTypeBadge(train.type_ar)}
+                                className="whitespace-nowrap"
+                              >
+                                {train.type_ar}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-medium hidden sm:table-cell">
+                              {train.start_station_ar}
+                            </TableCell>
+                            <TableCell className="font-medium hidden md:table-cell">
+                              {train.end_station_ar}
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell">
+                              <span className="text-sm text-muted-foreground">
+                                {train.stops_count} محطة
+                              </span>
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell">
+                              {train.note_ar ? (
+                                <div className="flex items-center gap-1.5 max-w-[200px]">
+                                  <StickyNote className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <span
+                                    className="text-sm text-muted-foreground truncate"
+                                    title={train.note_ar}
+                                  >
+                                    {train.note_ar}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground/50">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  train.is_active ? "default" : "secondary"
+                                }
+                                className="whitespace-nowrap"
+                              >
+                                {train.is_active ? "نشط" : "غير نشط"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1 md:gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleViewStops(train)}
+                                  title="عرض وقفات القطار"
+                                  className="h-8 w-8"
+                                >
+                                  <MapPin className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEdit(train)}
+                                  className="h-8 w-8"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteClick(train)}
+                                  className="h-8 w-8"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Train Form Dialog */}
       <TrainFormDialog
@@ -364,7 +454,8 @@ export default function TrainsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
             <AlertDialogDescription>
-              سيتم حذف القطار رقم &quot;{selectedTrain?.train_id}&quot; نهائياً. هذا الإجراء لا يمكن التراجع عنه.
+              سيتم حذف القطار رقم &quot;{selectedTrain?.train_id}&quot; نهائياً.
+              هذا الإجراء لا يمكن التراجع عنه.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -387,5 +478,5 @@ export default function TrainsPage() {
         trainName={`${selectedTrain?.start_station_ar || ""} - ${selectedTrain?.end_station_ar || ""}`}
       />
     </div>
-  )
+  );
 }
