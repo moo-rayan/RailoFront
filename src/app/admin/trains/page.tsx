@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { trainsApi } from "@/lib/api/trains"
+import { dataBundleApi } from "@/lib/api/data-bundle"
 import { Train } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Search, Edit, Trash2, Train as TrainIcon, MapPin, StickyNote } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Train as TrainIcon, MapPin, StickyNote, Armchair } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { TrainFormDialog } from "@/components/admin/train-form-dialog"
 import { TrainStopsDialog } from "@/components/admin/train-stops-dialog"
@@ -60,6 +61,13 @@ export default function TrainsPage() {
 
   const trains = trainsData?.items ?? []
 
+  const { data: seatLayoutsData, isLoading: seatLayoutsLoading, error: seatLayoutsError } = useQuery({
+    queryKey: ["seat-layouts"],
+    queryFn: dataBundleApi.getSeatLayouts,
+    retry: 2,
+    staleTime: 30000,
+  })
+
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: (trainNumber: string) => trainsApi.delete(trainNumber),
@@ -76,6 +84,19 @@ export default function TrainsPage() {
 
   // Filter trains
   const filteredTrains = trains.filter(
+    (train) =>
+      train.train_id.includes(searchQuery) ||
+      train.type_ar.includes(searchQuery) ||
+      train.type_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      train.start_station_ar.includes(searchQuery) ||
+      train.end_station_ar.includes(searchQuery)
+  )
+
+  const trainsWithSeatLayouts = new Set(Object.keys(seatLayoutsData?.layouts ?? {}))
+  const trainsWithoutSeatLayouts = trains.filter(
+    (train) => !trainsWithSeatLayouts.has(train.train_id)
+  )
+  const filteredTrainsWithoutSeatLayouts = trainsWithoutSeatLayouts.filter(
     (train) =>
       train.train_id.includes(searchQuery) ||
       train.type_ar.includes(searchQuery) ||
@@ -152,6 +173,62 @@ export default function TrainsPage() {
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Missing Seat Layouts */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+              <Armchair className="h-5 w-5 text-primary" />
+              قطارات بدون توزيع مقاعد
+            </CardTitle>
+            <Badge variant={trainsWithoutSeatLayouts.length > 0 ? "secondary" : "default"} className="w-fit">
+              {seatLayoutsLoading ? "جاري الفحص..." : `${trainsWithoutSeatLayouts.length} قطار`}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {seatLayoutsError ? (
+            <div className="text-sm text-destructive">
+              تعذر تحميل بيانات توزيعات المقاعد
+            </div>
+          ) : seatLayoutsLoading || isLoading ? (
+            <div className="text-sm text-muted-foreground">جاري تحميل القائمة...</div>
+          ) : trainsWithoutSeatLayouts.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              كل القطارات المعروضة لديها توزيع مقاعد.
+            </div>
+          ) : filteredTrainsWithoutSeatLayouts.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              لا توجد قطارات بدون توزيع مطابقة للبحث الحالي.
+            </div>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredTrainsWithoutSeatLayouts.slice(0, 24).map((train) => (
+                <div
+                  key={train.id}
+                  className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <div className="font-mono text-sm font-semibold">{train.train_id}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {train.start_station_ar} - {train.end_station_ar}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="shrink-0 whitespace-nowrap">
+                    {train.type_ar}
+                  </Badge>
+                </div>
+              ))}
+              {filteredTrainsWithoutSeatLayouts.length > 24 && (
+                <div className="flex items-center rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+                  +{filteredTrainsWithoutSeatLayouts.length - 24} قطار آخر
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

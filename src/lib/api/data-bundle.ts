@@ -15,9 +15,21 @@ export interface BundleRebuildResult extends BundleVersionInfo {
   r2_uploaded: boolean;
 }
 
+export interface SeatLayoutsResponse {
+  version: string;
+  total: number;
+  trains_count: number;
+  layouts: Record<string, unknown[]>;
+}
+
 export const dataBundleApi = {
   getVersion: async (): Promise<BundleVersionInfo> => {
     const response = await apiClient.get('/data/version');
+    return response.data;
+  },
+
+  getSeatLayouts: async (): Promise<SeatLayoutsResponse> => {
+    const response = await apiClient.get('/data/seat-layouts');
     return response.data;
   },
 
