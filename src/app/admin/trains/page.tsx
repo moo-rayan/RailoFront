@@ -25,6 +25,8 @@ import {
   MapPin,
   StickyNote,
   Armchair,
+  DownloadCloud,
+  Loader2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,6 +51,9 @@ export default function TrainsPage() {
   const [stopsDialogOpen, setStopsDialogOpen] = useState(false);
   const [selectedTrain, setSelectedTrain] = useState<Train | undefined>();
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [importingTrainNumber, setImportingTrainNumber] = useState<
+    string | null
+  >(null);
   const queryClient = useQueryClient();
 
   // Fetch trains
@@ -97,6 +102,44 @@ export default function TrainsPage() {
     },
     onError: () => {
       toast.error("حدث خطأ أثناء حذف القطار");
+    },
+  });
+
+  const importSeatLayoutMutation = useMutation({
+    mutationFn: (trainNumber: string) =>
+      dataBundleApi.importSeatLayoutFromEnr(trainNumber),
+    onMutate: (trainNumber) => {
+      setImportingTrainNumber(trainNumber);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["seat-layouts"] });
+      if (result.target_train_found) {
+        toast.success(
+          `تم جلب توزيع القطار ${result.train_number} (${result.inserted} جديد، ${result.updated} تحديث)`,
+        );
+      } else {
+        toast.warning(
+          `تم فحص ENR لكن لم يظهر القطار ${result.train_number} في نتيجة البحث`,
+        );
+      }
+    },
+    onError: (error: unknown) => {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof error.response === "object" &&
+        error.response !== null &&
+        "data" in error.response &&
+        typeof error.response.data === "object" &&
+        error.response.data !== null &&
+        "detail" in error.response.data
+          ? String(error.response.data.detail)
+          : "حدث خطأ أثناء جلب توزيع المقاعد من ENR";
+      toast.error(message);
+    },
+    onSettled: () => {
+      setImportingTrainNumber(null);
     },
   });
 
@@ -276,12 +319,27 @@ export default function TrainsPage() {
                           {train.start_station_ar} - {train.end_station_ar}
                         </div>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className="shrink-0 whitespace-nowrap"
-                      >
-                        {train.type_ar}
-                      </Badge>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge variant="outline" className="whitespace-nowrap">
+                          {train.type_ar}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="h-8 gap-1.5 whitespace-nowrap px-2.5"
+                          disabled={importSeatLayoutMutation.isPending}
+                          onClick={() =>
+                            importSeatLayoutMutation.mutate(train.train_id)
+                          }
+                        >
+                          {importingTrainNumber === train.train_id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <DownloadCloud className="h-3.5 w-3.5" />
+                          )}
+                          جلب التوزيع
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
