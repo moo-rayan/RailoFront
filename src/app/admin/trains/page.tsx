@@ -202,6 +202,8 @@ export default function TrainsPage() {
       مكيف: "secondary",
       خاص: "outline",
       تالجو: "default",
+      "نوم + تانية اسبانى مطور": "outline",
+      "محسن + اسبانى مطور": "secondary",
     };
     return variants[type] || "secondary";
   };

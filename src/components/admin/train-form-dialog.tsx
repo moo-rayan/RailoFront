@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useRef, useCallback } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { trainsApi } from "@/lib/api/trains"
-import { stationsApi } from "@/lib/api/stations"
-import { Train, Station } from "@/types"
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { trainsApi } from "@/lib/api/trains";
+import { stationsApi } from "@/lib/api/stations";
+import { Train, Station, UpdateTrainInput } from "@/types";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -23,18 +23,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { toast } from "sonner"
-import { Search, X, Loader2, MapPin } from "lucide-react"
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { Search, X, Loader2, MapPin } from "lucide-react";
 
 const trainSchema = z.object({
   train_id: z.string().min(1, "رقم القطار مطلوب"),
@@ -51,15 +51,15 @@ const trainSchema = z.object({
   arrival_period: z.string().optional(),
   note_ar: z.string().optional(),
   note_en: z.string().optional(),
-})
+});
 
-type TrainFormValues = z.infer<typeof trainSchema>
+type TrainFormValues = z.infer<typeof trainSchema>;
 
 interface TrainFormDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  train?: Train
-  mode: "create" | "edit"
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  train?: Train;
+  mode: "create" | "edit";
 }
 
 const trainTypes = [
@@ -70,28 +70,30 @@ const trainTypes = [
   { ar: "VIP", en: "VIP" },
   { ar: "خاص", en: "Special" },
   { ar: "نوم", en: "Sleep" },
+  { ar: "نوم + تانية اسبانى مطور", en: "Sleep + Second Spanish Enhanced" },
   { ar: "نوم - جلوس", en: "Sleep - Seated" },
   { ar: "نوم - VIP برايم", en: "Sleep - VIP Prime" },
   { ar: "مختلط", en: "Mix" },
   { ar: "تالجو", en: "Talgo" },
   { ar: "أسباني", en: "Spanish" },
   { ar: "أسباني مطور", en: "Spanish Enhanced" },
+  { ar: "محسن + اسبانى مطور", en: "Improved + Spanish Enhanced" },
   { ar: "فرنساوي مطور", en: "French Enhanced" },
   { ar: "فرنساوي - VIP برايم", en: "French - VIP Prime" },
   { ar: "ثانية مكيفة فاخرة", en: "Premium AC" },
-]
+];
 
 /** Parse "5:30 ص" or "5:30 AM" into { time: "5:30", period: "ص" } */
 function parseTimeStr(str: string): { time: string; period: string } {
-  if (!str || !str.trim()) return { time: "", period: "ص" }
-  const trimmed = str.trim()
-  const parts = trimmed.split(" ")
+  if (!str || !str.trim()) return { time: "", period: "ص" };
+  const trimmed = str.trim();
+  const parts = trimmed.split(" ");
   if (parts.length === 2) {
-    const p = parts[1]
-    const period = (p === "م" || p === "PM" || p === "pm") ? "م" : "ص"
-    return { time: parts[0], period }
+    const p = parts[1];
+    const period = p === "م" || p === "PM" || p === "pm" ? "م" : "ص";
+    return { time: parts[0], period };
   }
-  return { time: trimmed, period: "ص" }
+  return { time: trimmed, period: "ص" };
 }
 
 /** Station search dropdown component */
@@ -101,54 +103,67 @@ function StationSearchField({
   onSelect,
   placeholder,
 }: {
-  label: string
-  selectedStation: { name_ar: string; name_en: string } | null
-  onSelect: (station: Station) => void
-  placeholder: string
+  label: string;
+  selectedStation: { name_ar: string; name_en: string } | null;
+  onSelect: (station: Station) => void;
+  placeholder: string;
 }) {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<Station[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [showResults, setShowResults] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Station[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!query.trim()) {
-      setResults([])
-      setShowResults(false)
-      return
+      setResults([]);
+      setShowResults(false);
+      return;
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      setIsSearching(true)
+      setIsSearching(true);
       try {
-        const res = await stationsApi.search(query.trim(), 1, 10)
-        setResults(res.items)
-        setShowResults(true)
+        const res = await stationsApi.search(query.trim(), 1, 10);
+        setResults(res.items);
+        setShowResults(true);
       } catch {
-        setResults([])
+        setResults([]);
       } finally {
-        setIsSearching(false)
+        setIsSearching(false);
       }
-    }, 350)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [query])
+    }, 350);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
 
   useEffect(() => {
     function handle(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        setShowResults(false)
+        setShowResults(false);
       }
     }
-    document.addEventListener("mousedown", handle)
-    return () => document.removeEventListener("mousedown", handle)
-  }, [])
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
 
   const handleClear = useCallback(() => {
-    onSelect({ id: 0, name_ar: "", name_en: "", latitude: null, longitude: null, place_id: null, audio_id: "", is_active: true, created_at: "", updated_at: "" })
-    setQuery("")
-  }, [onSelect])
+    onSelect({
+      id: 0,
+      name_ar: "",
+      name_en: "",
+      latitude: null,
+      longitude: null,
+      place_id: null,
+      audio_id: "",
+      is_active: true,
+      created_at: "",
+      updated_at: "",
+    });
+    setQuery("");
+  }, [onSelect]);
 
   return (
     <div className="space-y-1.5">
@@ -160,8 +175,8 @@ function StationSearchField({
             placeholder={placeholder}
             value={selectedStation?.name_ar ? selectedStation.name_ar : query}
             onChange={(e) => {
-              if (selectedStation?.name_ar) handleClear()
-              setQuery(e.target.value)
+              if (selectedStation?.name_ar) handleClear();
+              setQuery(e.target.value);
             }}
             className="pr-9 text-right"
             onFocus={() => results.length > 0 && setShowResults(true)}
@@ -188,29 +203,37 @@ function StationSearchField({
                 key={station.id}
                 className="w-full text-right px-3 py-2 hover:bg-accent flex items-center gap-2 text-sm border-b last:border-0"
                 onClick={() => {
-                  onSelect(station)
-                  setQuery("")
-                  setShowResults(false)
+                  onSelect(station);
+                  setQuery("");
+                  setShowResults(false);
                 }}
               >
                 <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <span className="font-medium">{station.name_ar}</span>
-                <span className="text-muted-foreground text-xs">{station.name_en}</span>
+                <span className="text-muted-foreground text-xs">
+                  {station.name_en}
+                </span>
               </button>
             ))}
           </div>
         )}
-        {showResults && results.length === 0 && !isSearching && query.length > 0 && !selectedStation?.name_ar && (
-          <div className="absolute top-full mt-1 w-full z-50 bg-card border rounded-lg shadow-lg px-3 py-2 text-sm text-muted-foreground text-center">
-            لا توجد نتائج
-          </div>
-        )}
+        {showResults &&
+          results.length === 0 &&
+          !isSearching &&
+          query.length > 0 &&
+          !selectedStation?.name_ar && (
+            <div className="absolute top-full mt-1 w-full z-50 bg-card border rounded-lg shadow-lg px-3 py-2 text-sm text-muted-foreground text-center">
+              لا توجد نتائج
+            </div>
+          )}
       </div>
       {selectedStation?.name_en && (
-        <p className="text-xs text-muted-foreground">{selectedStation.name_en}</p>
+        <p className="text-xs text-muted-foreground">
+          {selectedStation.name_en}
+        </p>
       )}
     </div>
-  )
+  );
 }
 
 /** Time input with AM/PM toggle */
@@ -221,11 +244,11 @@ function TimeInput({
   onTimeChange,
   onPeriodChange,
 }: {
-  label: string
-  time: string
-  period: string
-  onTimeChange: (v: string) => void
-  onPeriodChange: (v: string) => void
+  label: string;
+  time: string;
+  period: string;
+  onTimeChange: (v: string) => void;
+  onPeriodChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
@@ -255,7 +278,7 @@ function TimeInput({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export function TrainFormDialog({
@@ -264,11 +287,17 @@ export function TrainFormDialog({
   train,
   mode,
 }: TrainFormDialogProps) {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   // Station selection state
-  const [startStation, setStartStation] = useState<{ name_ar: string; name_en: string } | null>(null)
-  const [endStation, setEndStation] = useState<{ name_ar: string; name_en: string } | null>(null)
+  const [startStation, setStartStation] = useState<{
+    name_ar: string;
+    name_en: string;
+  } | null>(null);
+  const [endStation, setEndStation] = useState<{
+    name_ar: string;
+    name_en: string;
+  } | null>(null);
 
   const form = useForm<TrainFormValues>({
     resolver: zodResolver(trainSchema),
@@ -288,12 +317,12 @@ export function TrainFormDialog({
       note_ar: "",
       note_en: "",
     },
-  })
+  });
 
   useEffect(() => {
     if (open) {
-      const depParsed = parseTimeStr(train?.departure_ar ?? "")
-      const arrParsed = parseTimeStr(train?.arrival_ar ?? "")
+      const depParsed = parseTimeStr(train?.departure_ar ?? "");
+      const arrParsed = parseTimeStr(train?.arrival_ar ?? "");
 
       form.reset({
         train_id: train?.train_id ?? "",
@@ -310,54 +339,65 @@ export function TrainFormDialog({
         arrival_period: arrParsed.period,
         note_ar: train?.note_ar ?? "",
         note_en: train?.note_en ?? "",
-      })
+      });
 
       if (train?.start_station_ar) {
-        setStartStation({ name_ar: train.start_station_ar, name_en: train.start_station_en })
+        setStartStation({
+          name_ar: train.start_station_ar,
+          name_en: train.start_station_en,
+        });
       } else {
-        setStartStation(null)
+        setStartStation(null);
       }
       if (train?.end_station_ar) {
-        setEndStation({ name_ar: train.end_station_ar, name_en: train.end_station_en })
+        setEndStation({
+          name_ar: train.end_station_ar,
+          name_en: train.end_station_en,
+        });
       } else {
-        setEndStation(null)
+        setEndStation(null);
       }
     }
-  }, [open, train, form])
+  }, [open, train, form]);
 
   const createMutation = useMutation({
     mutationFn: trainsApi.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trains"] })
-      toast.success("تم إضافة القطار بنجاح")
-      onOpenChange(false)
-      form.reset()
-      setStartStation(null)
-      setEndStation(null)
+      queryClient.invalidateQueries({ queryKey: ["trains"] });
+      toast.success("تم إضافة القطار بنجاح");
+      onOpenChange(false);
+      form.reset();
+      setStartStation(null);
+      setEndStation(null);
     },
     onError: () => {
-      toast.error("حدث خطأ أثناء إضافة القطار")
+      toast.error("حدث خطأ أثناء إضافة القطار");
     },
-  })
+  });
 
   const updateMutation = useMutation({
-    mutationFn: ({ trainNumber, data }: { trainNumber: string; data: any }) =>
-      trainsApi.update(trainNumber, data),
+    mutationFn: ({
+      trainNumber,
+      data,
+    }: {
+      trainNumber: string;
+      data: UpdateTrainInput;
+    }) => trainsApi.update(trainNumber, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trains"] })
-      toast.success("تم تحديث القطار بنجاح")
-      onOpenChange(false)
+      queryClient.invalidateQueries({ queryKey: ["trains"] });
+      toast.success("تم تحديث القطار بنجاح");
+      onOpenChange(false);
     },
     onError: () => {
-      toast.error("حدث خطأ أثناء تحديث القطار")
+      toast.error("حدث خطأ أثناء تحديث القطار");
     },
-  })
+  });
 
   const onSubmit = (data: TrainFormValues) => {
-    const depTime = data.departure_time?.trim() ?? ""
-    const arrTime = data.arrival_time?.trim() ?? ""
-    const depPeriod = data.departure_period ?? "ص"
-    const arrPeriod = data.arrival_period ?? "ص"
+    const depTime = data.departure_time?.trim() ?? "";
+    const arrTime = data.arrival_time?.trim() ?? "";
+    const depPeriod = data.departure_period ?? "ص";
+    const arrPeriod = data.arrival_period ?? "ص";
 
     const payload = {
       train_id: data.train_id,
@@ -369,47 +409,60 @@ export function TrainFormDialog({
       end_station_en: data.end_station_en,
       stops_count: parseInt(data.stops_count),
       departure_ar: depTime ? `${depTime} ${depPeriod}` : "",
-      departure_en: depTime ? `${depTime} ${depPeriod === "ص" ? "AM" : "PM"}` : "",
+      departure_en: depTime
+        ? `${depTime} ${depPeriod === "ص" ? "AM" : "PM"}`
+        : "",
       arrival_ar: arrTime ? `${arrTime} ${arrPeriod}` : "",
-      arrival_en: arrTime ? `${arrTime} ${arrPeriod === "ص" ? "AM" : "PM"}` : "",
+      arrival_en: arrTime
+        ? `${arrTime} ${arrPeriod === "ص" ? "AM" : "PM"}`
+        : "",
       note_ar: data.note_ar ?? "",
       note_en: data.note_en ?? "",
-    }
+    };
 
     if (mode === "create") {
-      createMutation.mutate(payload)
+      createMutation.mutate(payload);
     } else if (train?.train_id) {
-      updateMutation.mutate({ trainNumber: train.train_id, data: payload })
+      updateMutation.mutate({ trainNumber: train.train_id, data: payload });
     }
-  }
+  };
 
-  const handleStartStationSelect = useCallback((station: Station) => {
-    if (station.name_ar) {
-      setStartStation({ name_ar: station.name_ar, name_en: station.name_en })
-      form.setValue("start_station_ar", station.name_ar)
-      form.setValue("start_station_en", station.name_en)
-    } else {
-      setStartStation(null)
-      form.setValue("start_station_ar", "")
-      form.setValue("start_station_en", "")
-    }
-  }, [form])
+  const handleStartStationSelect = useCallback(
+    (station: Station) => {
+      if (station.name_ar) {
+        setStartStation({ name_ar: station.name_ar, name_en: station.name_en });
+        form.setValue("start_station_ar", station.name_ar);
+        form.setValue("start_station_en", station.name_en);
+      } else {
+        setStartStation(null);
+        form.setValue("start_station_ar", "");
+        form.setValue("start_station_en", "");
+      }
+    },
+    [form],
+  );
 
-  const handleEndStationSelect = useCallback((station: Station) => {
-    if (station.name_ar) {
-      setEndStation({ name_ar: station.name_ar, name_en: station.name_en })
-      form.setValue("end_station_ar", station.name_ar)
-      form.setValue("end_station_en", station.name_en)
-    } else {
-      setEndStation(null)
-      form.setValue("end_station_ar", "")
-      form.setValue("end_station_en", "")
-    }
-  }, [form])
+  const handleEndStationSelect = useCallback(
+    (station: Station) => {
+      if (station.name_ar) {
+        setEndStation({ name_ar: station.name_ar, name_en: station.name_en });
+        form.setValue("end_station_ar", station.name_ar);
+        form.setValue("end_station_en", station.name_en);
+      } else {
+        setEndStation(null);
+        form.setValue("end_station_ar", "");
+        form.setValue("end_station_en", "");
+      }
+    },
+    [form],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent
+        className="max-w-3xl max-h-[90vh] overflow-y-auto"
+        dir="rtl"
+      >
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "إضافة قطار جديد" : "تعديل القطار"}
@@ -452,9 +505,9 @@ export function TrainFormDialog({
                     <FormLabel>النوع (عربي) *</FormLabel>
                     <Select
                       onValueChange={(val) => {
-                        field.onChange(val)
-                        const match = trainTypes.find((t) => t.ar === val)
-                        if (match) form.setValue("type_en", match.en)
+                        field.onChange(val);
+                        const match = trainTypes.find((t) => t.ar === val);
+                        if (match) form.setValue("type_en", match.en);
                       }}
                       value={field.value}
                     >
@@ -484,9 +537,9 @@ export function TrainFormDialog({
                     <FormLabel>النوع (English) *</FormLabel>
                     <Select
                       onValueChange={(val) => {
-                        field.onChange(val)
-                        const match = trainTypes.find((t) => t.en === val)
-                        if (match) form.setValue("type_ar", match.ar)
+                        field.onChange(val);
+                        const match = trainTypes.find((t) => t.en === val);
+                        if (match) form.setValue("type_ar", match.ar);
                       }}
                       value={field.value}
                     >
@@ -520,7 +573,11 @@ export function TrainFormDialog({
               <FormField
                 control={form.control}
                 name="start_station_ar"
-                render={() => <FormItem className="hidden"><FormMessage /></FormItem>}
+                render={() => (
+                  <FormItem className="hidden">
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
 
@@ -535,7 +592,11 @@ export function TrainFormDialog({
               <FormField
                 control={form.control}
                 name="end_station_ar"
-                render={() => <FormItem className="hidden"><FormMessage /></FormItem>}
+                render={() => (
+                  <FormItem className="hidden">
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
 
@@ -622,5 +683,5 @@ export function TrainFormDialog({
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
