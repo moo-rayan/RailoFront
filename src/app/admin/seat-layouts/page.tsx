@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Armchair,
   CheckCircle2,
+  Copy,
   DownloadCloud,
   Grid3X3,
   Layers,
@@ -22,12 +23,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { dataBundleApi } from "@/lib/api/data-bundle";
 import type {
+  AdminSeatLayoutDetail,
+  AdminSeatLayoutsResponse,
   AdminSeatLayoutSummary,
   EditableCoachLayout,
   EditableSeat,
   EditableSeatLayout,
+  SeatPositionType,
 } from "@/lib/api/data-bundle";
 import { trainsApi } from "@/lib/api/trains";
 import { cn } from "@/lib/utils";
@@ -54,6 +65,15 @@ type DragState = {
 const SEAT_WIDTH = 46;
 const SEAT_HEIGHT = 48;
 const GRID_STEP = 5;
+const SEAT_POSITION_OPTIONS: Array<{
+  value: SeatPositionType;
+  label: string;
+}> = [
+  { value: "window", label: "شباك" },
+  { value: "aisle", label: "ممر" },
+  { value: "window_aisle", label: "شباك + ممر" },
+  { value: "inner", label: "داخلي" },
+];
 
 function cloneLayout(layout: EditableSeatLayout): EditableSeatLayout {
   return JSON.parse(JSON.stringify(layout)) as EditableSeatLayout;
@@ -69,6 +89,25 @@ function seatKey(seat: EditableSeat): string {
 
 function classLabel(layout: AdminSeatLayoutSummary): string {
   return layout.class_name_ar || layout.class_name_en || layout.class_code;
+}
+
+function detailToSummary(layout: AdminSeatLayoutDetail): AdminSeatLayoutSummary {
+  return {
+    id: layout.id,
+    train_number: layout.train_number,
+    class_code: layout.class_code,
+    class_name_ar: layout.class_name_ar,
+    class_name_en: layout.class_name_en,
+    enr_train_id: layout.enr_train_id,
+    coach_count: layout.coach_count,
+    seat_count: layout.seat_count,
+    window_seat_count: layout.window_seat_count,
+    aisle_seat_count: layout.aisle_seat_count,
+    layout_hash: layout.layout_hash,
+    source_file: layout.source_file,
+    imported_at: layout.imported_at,
+    updated_at: layout.updated_at,
+  };
 }
 
 function isWindowSeat(seat: EditableSeat): boolean {
@@ -133,6 +172,29 @@ function selectedSeatLabel(seat: EditableSeat | null): string {
   if (isWindowSeat(seat)) return "شباك";
   if (isAisleSeat(seat)) return "ممر";
   return "داخلي";
+}
+
+function normalizeSeatPositionType(seat: EditableSeat | null): SeatPositionType {
+  if (!seat) return "inner";
+  if (isWindowSeat(seat) && isAisleSeat(seat)) return "window_aisle";
+  if (isWindowSeat(seat)) return "window";
+  if (isAisleSeat(seat)) return "aisle";
+  return "inner";
+}
+
+function applySeatPositionType(
+  seat: EditableSeat,
+  positionType: SeatPositionType,
+) {
+  seat.position_type = positionType;
+  seat.is_window = positionType === "window" || positionType === "window_aisle";
+  seat.is_aisle = positionType === "aisle" || positionType === "window_aisle";
+}
+
+function updateCoachSeatCounts(coach: EditableCoachLayout) {
+  coach.seat_count = coach.seats.length;
+  coach.window_seat_count = coach.seats.filter(isWindowSeat).length;
+  coach.aisle_seat_count = coach.seats.filter(isAisleSeat).length;
 }
 
 function nextSeatNumber(coach: EditableCoachLayout): string {
@@ -288,7 +350,10 @@ export default function SeatLayoutsPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTrainNumber, setSelectedTrainNumber] = useState<string | null>(
-    null,
+    () => {
+      if (typeof window === "undefined") return null;
+      return new URLSearchParams(window.location.search).get("train");
+    },
   );
   const [selectedLayoutId, setSelectedLayoutId] = useState<number | null>(null);
   const [selectedCoachOrder, setSelectedCoachOrder] = useState<number | null>(
@@ -300,6 +365,15 @@ export default function SeatLayoutsPage() {
   } | null>(null);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(true);
+  const [newSeatPositionType, setNewSeatPositionType] =
+    useState<SeatPositionType>("window");
+  const [manualClassCode, setManualClassCode] = useState("MANUAL");
+  const [manualClassNameAr, setManualClassNameAr] = useState("توزيع يدوي");
+  const [manualClassNameEn, setManualClassNameEn] = useState("Manual layout");
+  const [manualCoachCount, setManualCoachCount] = useState("1");
+  const [manualSeatsPerCoach, setManualSeatsPerCoach] = useState("24");
+  const [copySourceLayoutId, setCopySourceLayoutId] = useState("");
+  const [copySourceTypeClassKey, setCopySourceTypeClassKey] = useState("");
 
   const { data: trainsData, isLoading: trainsLoading } = useQuery({
     queryKey: ["trains"],
@@ -324,6 +398,13 @@ export default function SeatLayoutsPage() {
     () => layoutsData?.layouts ?? [],
     [layoutsData?.layouts],
   );
+  const trainByNumber = useMemo(() => {
+    const map = new Map<string, Train>();
+    for (const train of trainRows) {
+      map.set(train.train_id, train);
+    }
+    return map;
+  }, [trainRows]);
 
   const layoutsByTrain = useMemo(() => {
     const grouped = new Map<string, AdminSeatLayoutSummary[]>();
@@ -356,7 +437,12 @@ export default function SeatLayoutsPage() {
     return firstWithLayout.train_id;
   }, [layoutsByTrain, trainRows]);
 
-  const activeTrainNumber = selectedTrainNumber ?? firstTrainNumber;
+  const activeTrainNumber =
+    selectedTrainNumber &&
+    (trainRows.length === 0 ||
+      trainRows.some((train) => train.train_id === selectedTrainNumber))
+      ? selectedTrainNumber
+      : firstTrainNumber;
 
   const selectedTrain = useMemo(
     () =>
@@ -371,6 +457,59 @@ export default function SeatLayoutsPage() {
         : [],
     [activeTrainNumber, layoutsByTrain],
   );
+
+  const copySourceLayoutOptions = useMemo(
+    () =>
+      layoutRows
+        .filter((layout) => layout.train_number !== activeTrainNumber)
+        .map((layout) => ({
+          layout,
+          train: trainByNumber.get(layout.train_number) ?? null,
+        })),
+    [activeTrainNumber, layoutRows, trainByNumber],
+  );
+
+  const copySourceTypeClassOptions = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        key: string;
+        trainTypeAr: string;
+        classCode: string;
+        className: string;
+        count: number;
+        seatCount: number;
+      }
+    >();
+
+    for (const layout of layoutRows) {
+      if (layout.train_number === activeTrainNumber) continue;
+      const train = trainByNumber.get(layout.train_number);
+      if (!train) continue;
+      const value = JSON.stringify([train.type_ar, layout.class_code]);
+      const current = grouped.get(value);
+      if (current) {
+        current.count += 1;
+        current.seatCount = Math.max(current.seatCount, layout.seat_count);
+      } else {
+        grouped.set(value, {
+          key: value,
+          trainTypeAr: train.type_ar,
+          classCode: layout.class_code,
+          className: classLabel(layout),
+          count: 1,
+          seatCount: layout.seat_count,
+        });
+      }
+    }
+
+    return [...grouped.values()].sort((a, b) =>
+      `${a.trainTypeAr} ${a.className}`.localeCompare(
+        `${b.trainTypeAr} ${b.className}`,
+        "ar",
+      ),
+    );
+  }, [activeTrainNumber, layoutRows, trainByNumber]);
 
   const sameTypeTrains = useMemo(() => {
     if (!selectedTrain) return [];
@@ -464,6 +603,48 @@ export default function SeatLayoutsPage() {
     );
   }, [selectedCoach, selectedSeatId]);
 
+  const activateCreatedLayout = (
+    layout: AdminSeatLayoutDetail,
+    versionInfo: {
+      version: string;
+      total: number;
+      trains_count: number;
+    },
+  ) => {
+    queryClient.setQueryData(["admin-seat-layout", layout.id], layout);
+    queryClient.setQueryData<AdminSeatLayoutsResponse>(
+      ["admin-seat-layouts"],
+      (current) => {
+        if (!current) return current;
+        const summary = detailToSummary(layout);
+        const layouts = [
+          ...current.layouts.filter((item) => item.id !== layout.id),
+          summary,
+        ].sort((a, b) =>
+          `${a.train_number} ${a.class_code}`.localeCompare(
+            `${b.train_number} ${b.class_code}`,
+            "ar",
+          ),
+        );
+        return {
+          ...current,
+          ...versionInfo,
+          layouts,
+        };
+      },
+    );
+    queryClient.invalidateQueries({ queryKey: ["admin-seat-layouts"] });
+    queryClient.invalidateQueries({ queryKey: ["seat-layouts"] });
+    setSelectedTrainNumber(layout.train_number);
+    setSelectedLayoutId(layout.id);
+    setSelectedCoachOrder(null);
+    setSelectedSeatId(null);
+    setDraftState({
+      sourceKey: `${layout.id}:${layout.layout_hash}`,
+      layout: cloneLayout(layout.layout),
+    });
+  };
+
   const saveMutation = useMutation({
     mutationFn: ({
       layoutId,
@@ -489,6 +670,52 @@ export default function SeatLayoutsPage() {
     },
     onError: () => {
       toast.error("تعذر حفظ توزيع المقاعد");
+    },
+  });
+
+  const createLayoutMutation = useMutation({
+    mutationFn: ({
+      trainNumber,
+      classCode,
+      classNameAr,
+      classNameEn,
+      coachCount,
+      seatsPerCoach,
+    }: {
+      trainNumber: string;
+      classCode: string;
+      classNameAr: string;
+      classNameEn: string;
+      coachCount: number;
+      seatsPerCoach: number;
+    }) =>
+      dataBundleApi.createAdminSeatLayout({
+        train_number: trainNumber,
+        class_code: classCode,
+        class_name_ar: classNameAr,
+        class_name_en: classNameEn,
+        coach_count: coachCount,
+        seats_per_coach: seatsPerCoach,
+      }),
+    onSuccess: (result) => {
+      activateCreatedLayout(result.layout, result.version_info);
+      toast.success("تم إنشاء توزيع جديد وفتح المحرر");
+    },
+    onError: () => {
+      toast.error("تعذر إنشاء التوزيع");
+    },
+  });
+
+  const copyLayoutMutation = useMutation({
+    mutationFn: dataBundleApi.copyAdminSeatLayout,
+    onSuccess: (result) => {
+      activateCreatedLayout(result.layout, result.version_info);
+      toast.success(
+        `تم نسخ توزيع ${classLabel(result.source_layout)} إلى القطار ${result.layout.train_number}`,
+      );
+    },
+    onError: () => {
+      toast.error("تعذر نسخ التوزيع");
     },
   });
 
@@ -634,10 +861,11 @@ export default function SeatLayoutsPage() {
       x: position.x,
       y: position.y,
       row_index: selectedSeat?.row_index ?? -1,
-      position_type: "inner",
+      position_type: newSeatPositionType,
       is_window: false,
       is_aisle: false,
     };
+    applySeatPositionType(newSeat, newSeatPositionType);
     setDraftState((current) => {
       const base =
         current?.sourceKey === detailKey ? current.layout : draftLayout;
@@ -646,10 +874,26 @@ export default function SeatLayoutsPage() {
       const coach = next.coaches[selectedCoachIndex];
       if (!coach) return current;
       coach.seats = [...coach.seats, newSeat];
-      coach.seat_count = coach.seats.length;
+      updateCoachSeatCounts(coach);
       return { sourceKey: detailKey, layout: next };
     });
     setSelectedSeatId(seatKey(newSeat));
+  };
+
+  const updateSelectedSeatPositionType = (positionType: SeatPositionType) => {
+    if (selectedCoachIndex < 0 || !selectedSeatId) return;
+    setDraftState((current) => {
+      const base =
+        current?.sourceKey === detailKey ? current.layout : draftLayout;
+      if (!base || !detailKey) return current;
+      const next = cloneLayout(base);
+      const coach = next.coaches[selectedCoachIndex];
+      const seat = coach?.seats.find((item) => seatKey(item) === selectedSeatId);
+      if (!coach || !seat) return current;
+      applySeatPositionType(seat, positionType);
+      updateCoachSeatCounts(coach);
+      return { sourceKey: detailKey, layout: next };
+    });
   };
 
   const deleteSelectedSeat = () => {
@@ -667,7 +911,7 @@ export default function SeatLayoutsPage() {
       const coach = next.coaches[selectedCoachIndex];
       if (!coach || coach.seats.length <= 1) return current;
       coach.seats = coach.seats.filter((seat) => seatKey(seat) !== selectedSeatId);
-      coach.seat_count = coach.seats.length;
+      updateCoachSeatCounts(coach);
       return { sourceKey: detailKey, layout: next };
     });
     setSelectedSeatId(null);
@@ -711,6 +955,75 @@ export default function SeatLayoutsPage() {
     deleteTypeMutation.mutate({
       layoutId: activeLayoutId,
       trainTypeAr: selectedTrain.type_ar,
+    });
+  };
+
+  const createManualLayout = () => {
+    if (!activeTrainNumber) return;
+    const classCode = manualClassCode.trim();
+    const classNameAr = manualClassNameAr.trim();
+    const classNameEn = manualClassNameEn.trim();
+    const coachCount = Number.parseInt(manualCoachCount, 10);
+    const seatsPerCoach = Number.parseInt(manualSeatsPerCoach, 10);
+
+    if (!classCode || !classNameAr) {
+      toast.error("اكتب كود الدرجة واسمها أولا");
+      return;
+    }
+    if (!Number.isFinite(coachCount) || coachCount < 1 || coachCount > 40) {
+      toast.error("عدد العربات يجب أن يكون بين 1 و 40");
+      return;
+    }
+    if (
+      !Number.isFinite(seatsPerCoach) ||
+      seatsPerCoach < 1 ||
+      seatsPerCoach > 120
+    ) {
+      toast.error("عدد المقاعد لكل عربة يجب أن يكون بين 1 و 120");
+      return;
+    }
+
+    createLayoutMutation.mutate({
+      trainNumber: activeTrainNumber,
+      classCode,
+      classNameAr,
+      classNameEn,
+      coachCount,
+      seatsPerCoach,
+    });
+  };
+
+  const copyFromSelectedLayout = () => {
+    if (!activeTrainNumber || !copySourceLayoutId) return;
+    const sourceLayoutId = Number.parseInt(copySourceLayoutId, 10);
+    if (!Number.isFinite(sourceLayoutId)) return;
+    copyLayoutMutation.mutate({
+      target_train_number: activeTrainNumber,
+      source_layout_id: sourceLayoutId,
+    });
+  };
+
+  const copyFromSelectedType = () => {
+    if (!activeTrainNumber || !copySourceTypeClassKey) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(copySourceTypeClassKey);
+    } catch {
+      toast.error("اختيار النوع غير صحيح");
+      return;
+    }
+    if (
+      !Array.isArray(parsed) ||
+      typeof parsed[0] !== "string" ||
+      typeof parsed[1] !== "string"
+    ) {
+      toast.error("اختيار النوع غير صحيح");
+      return;
+    }
+    copyLayoutMutation.mutate({
+      target_train_number: activeTrainNumber,
+      source_train_type_ar: parsed[0],
+      source_class_code: parsed[1],
     });
   };
 
@@ -941,25 +1254,220 @@ export default function SeatLayoutsPage() {
             </Card>
           ) : activeTrainNumber && selectedTrainLayouts.length === 0 ? (
             <Card>
-              <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="font-semibold">لا يوجد توزيع لهذا القطار</div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    يمكن جلب التوزيع من ENR أولا، ثم تعديله من نفس الصفحة.
-                  </p>
+              <CardContent className="space-y-5 pt-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="font-semibold">لا يوجد توزيع لهذا القطار</div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      يمكنك جلب التوزيع من ENR، أو إنشاء قالب يدوي، أو نسخ توزيع
+                      جاهز من قطار أو نوع آخر.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => importMutation.mutate(activeTrainNumber)}
+                    disabled={
+                      importMutation.isPending ||
+                      createLayoutMutation.isPending ||
+                      copyLayoutMutation.isPending
+                    }
+                    className="gap-2"
+                  >
+                    {importMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <DownloadCloud className="h-4 w-4" />
+                    )}
+                    جلب من ENR
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => importMutation.mutate(activeTrainNumber)}
-                  disabled={importMutation.isPending}
-                  className="gap-2"
-                >
-                  {importMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <DownloadCloud className="h-4 w-4" />
-                  )}
-                  جلب التوزيع
-                </Button>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-lg border bg-muted/20 p-4">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <Plus className="h-4 w-4 text-primary" />
+                      إنشاء توزيع يدوي
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-muted-foreground">
+                          كود الدرجة
+                        </label>
+                        <Input
+                          value={manualClassCode}
+                          onChange={(event) =>
+                            setManualClassCode(event.target.value)
+                          }
+                          placeholder="AC 2"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-muted-foreground">
+                          اسم الدرجة
+                        </label>
+                        <Input
+                          value={manualClassNameAr}
+                          onChange={(event) =>
+                            setManualClassNameAr(event.target.value)
+                          }
+                          placeholder="ثانية مكيفة"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs text-muted-foreground">
+                          الاسم الإنجليزي
+                        </label>
+                        <Input
+                          value={manualClassNameEn}
+                          onChange={(event) =>
+                            setManualClassNameEn(event.target.value)
+                          }
+                          placeholder="AC Second"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-muted-foreground">
+                            العربات
+                          </label>
+                          <Input
+                            inputMode="numeric"
+                            value={manualCoachCount}
+                            onChange={(event) =>
+                              setManualCoachCount(event.target.value)
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-muted-foreground">
+                            مقاعد/عربة
+                          </label>
+                          <Input
+                            inputMode="numeric"
+                            value={manualSeatsPerCoach}
+                            onChange={(event) =>
+                              setManualSeatsPerCoach(event.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={createManualLayout}
+                      disabled={
+                        createLayoutMutation.isPending ||
+                        importMutation.isPending ||
+                        copyLayoutMutation.isPending
+                      }
+                      className="mt-4 gap-2"
+                    >
+                      {createLayoutMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      إنشاء وفتح المحرر
+                    </Button>
+                  </div>
+
+                  <div className="rounded-lg border bg-muted/20 p-4">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <Copy className="h-4 w-4 text-primary" />
+                      نسخ توزيع جاهز
+                    </div>
+                    <div className="mt-4 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">
+                          من قطار محدد
+                        </label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Select
+                            value={copySourceLayoutId}
+                            onValueChange={(value) =>
+                              setCopySourceLayoutId(value ?? "")
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-full">
+                              <SelectValue placeholder="اختر قطار ودرجة" />
+                            </SelectTrigger>
+                            <SelectContent align="end" className="max-h-72">
+                              {copySourceLayoutOptions.map(({ layout, train }) => (
+                                <SelectItem
+                                  key={layout.id}
+                                  value={String(layout.id)}
+                                >
+                                  {layout.train_number} - {classLabel(layout)}
+                                  {train ? ` - ${train.type_ar}` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="secondary"
+                            onClick={copyFromSelectedLayout}
+                            disabled={
+                              !copySourceLayoutId ||
+                              copyLayoutMutation.isPending ||
+                              createLayoutMutation.isPending ||
+                              importMutation.isPending
+                            }
+                            className="gap-2"
+                          >
+                            {copyLayoutMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                            نسخ
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">
+                          من نوع قطار
+                        </label>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Select
+                            value={copySourceTypeClassKey}
+                            onValueChange={(value) =>
+                              setCopySourceTypeClassKey(value ?? "")
+                            }
+                          >
+                            <SelectTrigger className="h-9 w-full">
+                              <SelectValue placeholder="اختر النوع والدرجة" />
+                            </SelectTrigger>
+                            <SelectContent align="end" className="max-h-72">
+                              {copySourceTypeClassOptions.map((option) => (
+                                <SelectItem key={option.key} value={option.key}>
+                                  {option.trainTypeAr} - {option.className}
+                                  {` (${option.count} قطار)`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="secondary"
+                            onClick={copyFromSelectedType}
+                            disabled={
+                              !copySourceTypeClassKey ||
+                              copyLayoutMutation.isPending ||
+                              createLayoutMutation.isPending ||
+                              importMutation.isPending
+                            }
+                            className="gap-2"
+                          >
+                            {copyLayoutMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Layers className="h-4 w-4" />
+                            )}
+                            نسخ
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ) : (
@@ -1095,16 +1603,67 @@ export default function SeatLayoutsPage() {
                         </Badge>
                       </div>
                       {selectedSeat && (
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                          <div>طولي X: {Number(selectedSeat.x).toFixed(0)}</div>
-                          <div>عرضي Y: {Number(selectedSeat.y).toFixed(0)}</div>
-                        </div>
+                        <>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                            <div>طولي X: {Number(selectedSeat.x).toFixed(0)}</div>
+                            <div>عرضي Y: {Number(selectedSeat.y).toFixed(0)}</div>
+                          </div>
+                          <div className="mt-3 space-y-1.5">
+                            <label className="text-xs text-muted-foreground">
+                              نوع المقعد
+                            </label>
+                            <Select
+                              value={normalizeSeatPositionType(selectedSeat)}
+                              onValueChange={(value) =>
+                                updateSelectedSeatPositionType(
+                                  value as SeatPositionType,
+                                )
+                              }
+                            >
+                              <SelectTrigger className="h-9 w-full">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent align="end">
+                                {SEAT_POSITION_OPTIONS.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
                       )}
                     </div>
 
                     <div className="rounded-lg border p-3">
                       <div className="text-xs font-medium text-muted-foreground">
                         إدارة الكراسي
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        <label className="text-xs text-muted-foreground">
+                          نوع الكرسي الجديد
+                        </label>
+                        <Select
+                          value={newSeatPositionType}
+                          onValueChange={(value) =>
+                            setNewSeatPositionType(value as SeatPositionType)
+                          }
+                        >
+                          <SelectTrigger className="h-9 w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent align="end">
+                            {SEAT_POSITION_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <Button

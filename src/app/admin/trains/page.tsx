@@ -341,6 +341,17 @@ export default function TrainsPage() {
                           )}
                           جلب التوزيع
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 whitespace-nowrap px-2.5"
+                          onClick={() => {
+                            window.location.href = `/admin/seat-layouts?train=${train.train_id}`;
+                          }}
+                        >
+                          <Armchair className="h-3.5 w-3.5" />
+                          إضافة/نسخ
+                        </Button>
                       </div>
                     </div>
                   ))}

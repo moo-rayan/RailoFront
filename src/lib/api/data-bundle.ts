@@ -110,6 +110,43 @@ export interface UpdateSeatLayoutResult {
   };
 }
 
+export interface CreateSeatLayoutPayload {
+  train_number: string;
+  class_code: string;
+  class_name_ar: string;
+  class_name_en?: string;
+  coach_count: number;
+  seats_per_coach: number;
+}
+
+export interface CreateSeatLayoutResult {
+  ok: boolean;
+  layout: AdminSeatLayoutDetail;
+  version_info: {
+    version: string;
+    total: number;
+    trains_count: number;
+  };
+}
+
+export interface CopySeatLayoutPayload {
+  target_train_number: string;
+  source_layout_id?: number;
+  source_train_type_ar?: string;
+  source_class_code?: string;
+}
+
+export interface CopySeatLayoutResult {
+  ok: boolean;
+  source_layout: AdminSeatLayoutSummary;
+  layout: AdminSeatLayoutDetail;
+  version_info: {
+    version: string;
+    total: number;
+    trains_count: number;
+  };
+}
+
 export interface ApplySeatLayoutToTypeResult {
   ok: boolean;
   source_layout_id: number;
@@ -190,6 +227,23 @@ export const dataBundleApi = {
     const response = await apiClient.patch(
       `/data/seat-layouts/admin/${layoutId}`,
       { layout },
+    );
+    return response.data;
+  },
+
+  createAdminSeatLayout: async (
+    payload: CreateSeatLayoutPayload,
+  ): Promise<CreateSeatLayoutResult> => {
+    const response = await apiClient.post("/data/seat-layouts/admin", payload);
+    return response.data;
+  },
+
+  copyAdminSeatLayout: async (
+    payload: CopySeatLayoutPayload,
+  ): Promise<CopySeatLayoutResult> => {
+    const response = await apiClient.post(
+      "/data/seat-layouts/admin/copy",
+      payload,
     );
     return response.data;
   },
