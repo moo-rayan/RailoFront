@@ -29,7 +29,7 @@ export const stationsApi = {
   },
 
   search: async (query: string, page = 1, pageSize = 100): Promise<StationListResponse> => {
-    const response = await apiClient.get('/stations/search', {
+    const response = await apiClient.get('/stations', {
       params: { q: query, page, page_size: pageSize },
     });
     return response.data;
