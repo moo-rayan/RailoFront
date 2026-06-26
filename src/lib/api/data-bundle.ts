@@ -110,6 +110,23 @@ export interface UpdateSeatLayoutResult {
   };
 }
 
+export interface ApplySeatLayoutToTypeResult {
+  ok: boolean;
+  source_layout_id: number;
+  train_type_ar: string;
+  class_code: string;
+  target_trains_count: number;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  target_train_numbers: string[];
+  version_info: {
+    version: string;
+    total: number;
+    trains_count: number;
+  };
+}
+
 export interface ImportSeatLayoutFromEnrResult {
   ok: boolean;
   train_number: string;
@@ -158,6 +175,18 @@ export const dataBundleApi = {
     const response = await apiClient.patch(
       `/data/seat-layouts/admin/${layoutId}`,
       { layout },
+    );
+    return response.data;
+  },
+
+  applyAdminSeatLayoutToType: async (
+    layoutId: number,
+    trainTypeAr: string,
+    layout: EditableSeatLayout,
+  ): Promise<ApplySeatLayoutToTypeResult> => {
+    const response = await apiClient.post(
+      `/data/seat-layouts/admin/${layoutId}/apply-to-type`,
+      { train_type_ar: trainTypeAr, layout },
     );
     return response.data;
   },

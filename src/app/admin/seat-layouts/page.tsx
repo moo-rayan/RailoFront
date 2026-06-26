@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   DownloadCloud,
   Grid3X3,
+  Layers,
   Loader2,
   RotateCcw,
   Save,
@@ -342,6 +343,11 @@ export default function SeatLayoutsPage() {
     [activeTrainNumber, layoutsByTrain],
   );
 
+  const sameTypeTrains = useMemo(() => {
+    if (!selectedTrain) return [];
+    return trainRows.filter((train) => train.type_ar === selectedTrain.type_ar);
+  }, [selectedTrain, trainRows]);
+
   const activeLayoutId = useMemo(() => {
     if (
       selectedLayoutId != null &&
@@ -351,6 +357,13 @@ export default function SeatLayoutsPage() {
     }
     return selectedTrainLayouts[0]?.id ?? null;
   }, [selectedLayoutId, selectedTrainLayouts]);
+
+  const activeLayoutSummary = useMemo(
+    () =>
+      selectedTrainLayouts.find((layout) => layout.id === activeLayoutId) ??
+      null,
+    [activeLayoutId, selectedTrainLayouts],
+  );
 
   const {
     data: layoutDetail,
@@ -450,6 +463,32 @@ export default function SeatLayoutsPage() {
     },
   });
 
+  const applyTypeMutation = useMutation({
+    mutationFn: ({
+      layoutId,
+      trainTypeAr,
+      layout,
+    }: {
+      layoutId: number;
+      trainTypeAr: string;
+      layout: EditableSeatLayout;
+    }) => dataBundleApi.applyAdminSeatLayoutToType(layoutId, trainTypeAr, layout),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-seat-layouts"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin-seat-layout", result.source_layout_id],
+      });
+      queryClient.invalidateQueries({ queryKey: ["seat-layouts"] });
+      setDraftState(null);
+      toast.success(
+        `تم تطبيق التوزيع على ${result.target_trains_count} قطار (${result.inserted} جديد، ${result.updated} تحديث)`,
+      );
+    },
+    onError: () => {
+      toast.error("تعذر تطبيق التوزيع على نوع القطار");
+    },
+  });
+
   const importMutation = useMutation({
     mutationFn: (trainNumber: string) =>
       dataBundleApi.importSeatLayoutFromEnr(trainNumber),
@@ -515,6 +554,21 @@ export default function SeatLayoutsPage() {
   const saveDraft = () => {
     if (!activeLayoutId || !draftLayout || !isDirty) return;
     saveMutation.mutate({ layoutId: activeLayoutId, layout: draftLayout });
+  };
+
+  const applyDraftToType = () => {
+    if (!activeLayoutId || !draftLayout || !selectedTrain || !activeLayoutSummary) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `سيتم تطبيق توزيع ${classLabel(activeLayoutSummary)} على ${sameTypeTrains.length} قطار من نوع "${selectedTrain.type_ar}". هل تريد المتابعة؟`,
+    );
+    if (!confirmed) return;
+    applyTypeMutation.mutate({
+      layoutId: activeLayoutId,
+      trainTypeAr: selectedTrain.type_ar,
+      layout: draftLayout,
+    });
   };
 
   const totalSeatCount = selectedCoach?.seats.length ?? 0;
@@ -658,6 +712,48 @@ export default function SeatLayoutsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {selectedTrain && activeLayoutSummary && draftLayout && (
+            <Card>
+              <CardContent className="flex flex-col gap-3 pt-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <Layers className="h-4 w-4 text-primary" />
+                      تطبيق حسب نوع القطار
+                    </span>
+                    <Badge variant="outline">{selectedTrain.type_ar}</Badge>
+                    <Badge variant="secondary">
+                      {sameTypeTrains.length} قطار
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    يطبق توزيع درجة {classLabel(activeLayoutSummary)} الحالي على
+                    كل القطارات النشطة من نفس النوع.
+                    {isDirty ? " سيتم استخدام التعديل الحالي غير المحفوظ." : ""}
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={applyDraftToType}
+                  disabled={
+                    !activeLayoutId ||
+                    !draftLayout ||
+                    applyTypeMutation.isPending ||
+                    saveMutation.isPending
+                  }
+                  className="gap-2"
+                >
+                  {applyTypeMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Layers className="h-4 w-4" />
+                  )}
+                  تطبيق على النوع
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {layoutsError ? (
             <Card>
