@@ -458,15 +458,24 @@ export default function SeatLayoutsPage() {
     [activeTrainNumber, layoutsByTrain],
   );
 
+  const targetClassCodes = useMemo(
+    () => new Set(selectedTrainLayouts.map((layout) => layout.class_code)),
+    [selectedTrainLayouts],
+  );
+
   const copySourceLayoutOptions = useMemo(
     () =>
       layoutRows
-        .filter((layout) => layout.train_number !== activeTrainNumber)
+        .filter(
+          (layout) =>
+            layout.train_number !== activeTrainNumber &&
+            !targetClassCodes.has(layout.class_code),
+        )
         .map((layout) => ({
           layout,
           train: trainByNumber.get(layout.train_number) ?? null,
         })),
-    [activeTrainNumber, layoutRows, trainByNumber],
+    [activeTrainNumber, layoutRows, targetClassCodes, trainByNumber],
   );
 
   const copySourceTypeClassOptions = useMemo(() => {
@@ -484,6 +493,7 @@ export default function SeatLayoutsPage() {
 
     for (const layout of layoutRows) {
       if (layout.train_number === activeTrainNumber) continue;
+      if (targetClassCodes.has(layout.class_code)) continue;
       const train = trainByNumber.get(layout.train_number);
       if (!train) continue;
       const value = JSON.stringify([train.type_ar, layout.class_code]);
@@ -509,7 +519,7 @@ export default function SeatLayoutsPage() {
         "ar",
       ),
     );
-  }, [activeTrainNumber, layoutRows, trainByNumber]);
+  }, [activeTrainNumber, layoutRows, targetClassCodes, trainByNumber]);
 
   const sameTypeTrains = useMemo(() => {
     if (!selectedTrain) return [];
@@ -710,6 +720,8 @@ export default function SeatLayoutsPage() {
     mutationFn: dataBundleApi.copyAdminSeatLayout,
     onSuccess: (result) => {
       activateCreatedLayout(result.layout, result.version_info);
+      setCopySourceLayoutId("");
+      setCopySourceTypeClassKey("");
       toast.success(
         `تم نسخ توزيع ${classLabel(result.source_layout)} إلى القطار ${result.layout.train_number}`,
       );
@@ -818,6 +830,8 @@ export default function SeatLayoutsPage() {
     setSelectedCoachOrder(null);
     setSelectedSeatId(null);
     setDraftState(null);
+    setCopySourceLayoutId("");
+    setCopySourceTypeClassKey("");
   };
 
   const selectLayout = (layout: AdminSeatLayoutSummary) => {
@@ -997,6 +1011,12 @@ export default function SeatLayoutsPage() {
     if (!activeTrainNumber || !copySourceLayoutId) return;
     const sourceLayoutId = Number.parseInt(copySourceLayoutId, 10);
     if (!Number.isFinite(sourceLayoutId)) return;
+    if (
+      !copySourceLayoutOptions.some(({ layout }) => layout.id === sourceLayoutId)
+    ) {
+      toast.error("اختر توزيعا لدرجة غير موجودة على القطار الحالي");
+      return;
+    }
     copyLayoutMutation.mutate({
       target_train_number: activeTrainNumber,
       source_layout_id: sourceLayoutId,
@@ -1020,6 +1040,10 @@ export default function SeatLayoutsPage() {
       toast.error("اختيار النوع غير صحيح");
       return;
     }
+    if (!copySourceTypeClassOptions.some((option) => option.key === copySourceTypeClassKey)) {
+      toast.error("اختر نوعا ودرجة غير موجودين على القطار الحالي");
+      return;
+    }
     copyLayoutMutation.mutate({
       target_train_number: activeTrainNumber,
       source_train_type_ar: parsed[0],
@@ -1030,6 +1054,116 @@ export default function SeatLayoutsPage() {
   const totalSeatCount = selectedCoach?.seats.length ?? 0;
   const windowCount = selectedCoach?.seats.filter(isWindowSeat).length ?? 0;
   const aisleCount = selectedCoach?.seats.filter(isAisleSeat).length ?? 0;
+  const hasCopySources =
+    copySourceLayoutOptions.length > 0 || copySourceTypeClassOptions.length > 0;
+  const canCopyFromLayout = copySourceLayoutOptions.some(
+    ({ layout }) => String(layout.id) === copySourceLayoutId,
+  );
+  const canCopyFromType = copySourceTypeClassOptions.some(
+    (option) => option.key === copySourceTypeClassKey,
+  );
+  const copyLayoutPanel = (
+    <div className="rounded-lg border bg-muted/20 p-4">
+      <div className="flex items-center gap-2 font-semibold">
+        <Copy className="h-4 w-4 text-primary" />
+        نسخ توزيع جاهز
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        اختر توزيعا من درجة غير موجودة حاليا على القطار، وسيتم إضافته كتوزيع
+        جديد لنفس القطار.
+      </p>
+
+      {!hasCopySources ? (
+        <div className="mt-4 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+          لا توجد درجات أخرى متاحة للنسخ إلى هذا القطار حاليا.
+        </div>
+      ) : (
+        <div className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">من قطار محدد</label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                value={copySourceLayoutId}
+                onValueChange={(value) => setCopySourceLayoutId(value ?? "")}
+                disabled={copySourceLayoutOptions.length === 0}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="اختر قطار ودرجة" />
+                </SelectTrigger>
+                <SelectContent align="end" className="max-h-72">
+                  {copySourceLayoutOptions.map(({ layout, train }) => (
+                    <SelectItem key={layout.id} value={String(layout.id)}>
+                      {layout.train_number} - {classLabel(layout)}
+                      {train ? ` - ${train.type_ar}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="secondary"
+                onClick={copyFromSelectedLayout}
+                disabled={
+                  !canCopyFromLayout ||
+                  copyLayoutMutation.isPending ||
+                  createLayoutMutation.isPending ||
+                  importMutation.isPending
+                }
+                className="gap-2"
+              >
+                {copyLayoutMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                نسخ
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">من نوع قطار</label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                value={copySourceTypeClassKey}
+                onValueChange={(value) => setCopySourceTypeClassKey(value ?? "")}
+                disabled={copySourceTypeClassOptions.length === 0}
+              >
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="اختر النوع والدرجة" />
+                </SelectTrigger>
+                <SelectContent align="end" className="max-h-72">
+                  {copySourceTypeClassOptions.map((option) => (
+                    <SelectItem key={option.key} value={option.key}>
+                      {option.trainTypeAr} - {option.className}
+                      {` (${option.count} قطار)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="secondary"
+                onClick={copyFromSelectedType}
+                disabled={
+                  !canCopyFromType ||
+                  copyLayoutMutation.isPending ||
+                  createLayoutMutation.isPending ||
+                  importMutation.isPending
+                }
+                className="gap-2"
+              >
+                {copyLayoutMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Layers className="h-4 w-4" />
+                )}
+                نسخ
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-5" dir="rtl">
@@ -1369,104 +1503,7 @@ export default function SeatLayoutsPage() {
                     </Button>
                   </div>
 
-                  <div className="rounded-lg border bg-muted/20 p-4">
-                    <div className="flex items-center gap-2 font-semibold">
-                      <Copy className="h-4 w-4 text-primary" />
-                      نسخ توزيع جاهز
-                    </div>
-                    <div className="mt-4 space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">
-                          من قطار محدد
-                        </label>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <Select
-                            value={copySourceLayoutId}
-                            onValueChange={(value) =>
-                              setCopySourceLayoutId(value ?? "")
-                            }
-                          >
-                            <SelectTrigger className="h-9 w-full">
-                              <SelectValue placeholder="اختر قطار ودرجة" />
-                            </SelectTrigger>
-                            <SelectContent align="end" className="max-h-72">
-                              {copySourceLayoutOptions.map(({ layout, train }) => (
-                                <SelectItem
-                                  key={layout.id}
-                                  value={String(layout.id)}
-                                >
-                                  {layout.train_number} - {classLabel(layout)}
-                                  {train ? ` - ${train.type_ar}` : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="secondary"
-                            onClick={copyFromSelectedLayout}
-                            disabled={
-                              !copySourceLayoutId ||
-                              copyLayoutMutation.isPending ||
-                              createLayoutMutation.isPending ||
-                              importMutation.isPending
-                            }
-                            className="gap-2"
-                          >
-                            {copyLayoutMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                            نسخ
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">
-                          من نوع قطار
-                        </label>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <Select
-                            value={copySourceTypeClassKey}
-                            onValueChange={(value) =>
-                              setCopySourceTypeClassKey(value ?? "")
-                            }
-                          >
-                            <SelectTrigger className="h-9 w-full">
-                              <SelectValue placeholder="اختر النوع والدرجة" />
-                            </SelectTrigger>
-                            <SelectContent align="end" className="max-h-72">
-                              {copySourceTypeClassOptions.map((option) => (
-                                <SelectItem key={option.key} value={option.key}>
-                                  {option.trainTypeAr} - {option.className}
-                                  {` (${option.count} قطار)`}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="secondary"
-                            onClick={copyFromSelectedType}
-                            disabled={
-                              !copySourceTypeClassKey ||
-                              copyLayoutMutation.isPending ||
-                              createLayoutMutation.isPending ||
-                              importMutation.isPending
-                            }
-                            className="gap-2"
-                          >
-                            {copyLayoutMutation.isPending ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Layers className="h-4 w-4" />
-                            )}
-                            نسخ
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  {copyLayoutPanel}
                 </div>
               </CardContent>
             </Card>
@@ -1519,6 +1556,10 @@ export default function SeatLayoutsPage() {
                     </div>
                   )}
                 </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">{copyLayoutPanel}</CardContent>
               </Card>
 
               <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_280px]">
