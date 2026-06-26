@@ -127,6 +127,21 @@ export interface ApplySeatLayoutToTypeResult {
   };
 }
 
+export interface DeleteSeatLayoutResult {
+  ok: boolean;
+  deleted: number;
+  layout_id?: number;
+  train_type_ar?: string;
+  class_code?: string;
+  target_trains_count?: number;
+  target_train_numbers?: string[];
+  version_info: {
+    version: string;
+    total: number;
+    trains_count: number;
+  };
+}
+
 export interface ImportSeatLayoutFromEnrResult {
   ok: boolean;
   train_number: string;
@@ -187,6 +202,26 @@ export const dataBundleApi = {
     const response = await apiClient.post(
       `/data/seat-layouts/admin/${layoutId}/apply-to-type`,
       { train_type_ar: trainTypeAr, layout },
+    );
+    return response.data;
+  },
+
+  deleteAdminSeatLayout: async (
+    layoutId: number,
+  ): Promise<DeleteSeatLayoutResult> => {
+    const response = await apiClient.delete(
+      `/data/seat-layouts/admin/${layoutId}`,
+    );
+    return response.data;
+  },
+
+  deleteAdminSeatLayoutForType: async (
+    layoutId: number,
+    trainTypeAr: string,
+  ): Promise<DeleteSeatLayoutResult> => {
+    const response = await apiClient.delete(
+      `/data/seat-layouts/admin/${layoutId}/type`,
+      { params: { train_type_ar: trainTypeAr } },
     );
     return response.data;
   },

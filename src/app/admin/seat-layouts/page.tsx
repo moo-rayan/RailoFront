@@ -9,9 +9,11 @@ import {
   Grid3X3,
   Layers,
   Loader2,
+  Plus,
   RotateCcw,
   Save,
   Search,
+  Trash2,
   Train as TrainIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -131,6 +133,33 @@ function selectedSeatLabel(seat: EditableSeat | null): string {
   if (isWindowSeat(seat)) return "شباك";
   if (isAisleSeat(seat)) return "ممر";
   return "داخلي";
+}
+
+function nextSeatNumber(coach: EditableCoachLayout): string {
+  const existing = new Set(coach.seats.map((seat) => String(seat.number)));
+  const numericValues = coach.seats
+    .map((seat) => Number.parseInt(String(seat.number).replace(/\D/g, ""), 10))
+    .filter(Number.isFinite);
+  let next = (numericValues.length > 0 ? Math.max(...numericValues) : coach.seats.length) + 1;
+  while (existing.has(String(next))) next += 1;
+  return String(next);
+}
+
+function newSeatCoordinates(coach: EditableCoachLayout, selectedSeat: EditableSeat | null) {
+  if (selectedSeat) {
+    return {
+      x: Number(selectedSeat.x) + GRID_STEP,
+      y: Number(selectedSeat.y) + GRID_STEP,
+    };
+  }
+  if (coach.seats.length === 0) return { x: 0, y: 0 };
+  const avgX =
+    coach.seats.reduce((sum, seat) => sum + (Number(seat.x) || 0), 0) /
+    coach.seats.length;
+  const avgY =
+    coach.seats.reduce((sum, seat) => sum + (Number(seat.y) || 0), 0) /
+    coach.seats.length;
+  return { x: snap(avgX, true), y: snap(avgY, true) };
 }
 
 function SeatMapEditor({
@@ -489,6 +518,50 @@ export default function SeatLayoutsPage() {
     },
   });
 
+  const deleteLayoutMutation = useMutation({
+    mutationFn: (layoutId: number) =>
+      dataBundleApi.deleteAdminSeatLayout(layoutId),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-seat-layouts"] });
+      queryClient.invalidateQueries({ queryKey: ["seat-layouts"] });
+      if (result.layout_id) {
+        queryClient.removeQueries({
+          queryKey: ["admin-seat-layout", result.layout_id],
+        });
+      }
+      setSelectedLayoutId(null);
+      setSelectedCoachOrder(null);
+      setSelectedSeatId(null);
+      setDraftState(null);
+      toast.success("تم حذف التوزيع من القطار الحالي");
+    },
+    onError: () => {
+      toast.error("تعذر حذف التوزيع");
+    },
+  });
+
+  const deleteTypeMutation = useMutation({
+    mutationFn: ({
+      layoutId,
+      trainTypeAr,
+    }: {
+      layoutId: number;
+      trainTypeAr: string;
+    }) => dataBundleApi.deleteAdminSeatLayoutForType(layoutId, trainTypeAr),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-seat-layouts"] });
+      queryClient.invalidateQueries({ queryKey: ["seat-layouts"] });
+      setSelectedLayoutId(null);
+      setSelectedCoachOrder(null);
+      setSelectedSeatId(null);
+      setDraftState(null);
+      toast.success(`تم حذف ${result.deleted} توزيع من نوع ${result.train_type_ar}`);
+    },
+    onError: () => {
+      toast.error("تعذر حذف توزيعات هذا النوع");
+    },
+  });
+
   const importMutation = useMutation({
     mutationFn: (trainNumber: string) =>
       dataBundleApi.importSeatLayoutFromEnr(trainNumber),
@@ -551,6 +624,55 @@ export default function SeatLayoutsPage() {
     });
   };
 
+  const addSeatToCoach = () => {
+    if (selectedCoachIndex < 0 || !selectedCoach) return;
+    const position = newSeatCoordinates(selectedCoach, selectedSeat);
+    const nextNumber = nextSeatNumber(selectedCoach);
+    const newSeat: EditableSeat = {
+      enr_place_id: `manual:${Date.now()}:${nextNumber}`,
+      number: nextNumber,
+      x: position.x,
+      y: position.y,
+      row_index: selectedSeat?.row_index ?? -1,
+      position_type: "inner",
+      is_window: false,
+      is_aisle: false,
+    };
+    setDraftState((current) => {
+      const base =
+        current?.sourceKey === detailKey ? current.layout : draftLayout;
+      if (!base || !detailKey) return current;
+      const next = cloneLayout(base);
+      const coach = next.coaches[selectedCoachIndex];
+      if (!coach) return current;
+      coach.seats = [...coach.seats, newSeat];
+      coach.seat_count = coach.seats.length;
+      return { sourceKey: detailKey, layout: next };
+    });
+    setSelectedSeatId(seatKey(newSeat));
+  };
+
+  const deleteSelectedSeat = () => {
+    if (selectedCoachIndex < 0 || !selectedSeatId || !selectedCoach) return;
+    const selectedNumber = selectedSeat?.number ?? "";
+    const confirmed = window.confirm(
+      `سيتم حذف المقعد ${selectedNumber || selectedSeatId} من العربة الحالية. هل تريد المتابعة؟`,
+    );
+    if (!confirmed) return;
+    setDraftState((current) => {
+      const base =
+        current?.sourceKey === detailKey ? current.layout : draftLayout;
+      if (!base || !detailKey) return current;
+      const next = cloneLayout(base);
+      const coach = next.coaches[selectedCoachIndex];
+      if (!coach || coach.seats.length <= 1) return current;
+      coach.seats = coach.seats.filter((seat) => seatKey(seat) !== selectedSeatId);
+      coach.seat_count = coach.seats.length;
+      return { sourceKey: detailKey, layout: next };
+    });
+    setSelectedSeatId(null);
+  };
+
   const saveDraft = () => {
     if (!activeLayoutId || !draftLayout || !isDirty) return;
     saveMutation.mutate({ layoutId: activeLayoutId, layout: draftLayout });
@@ -568,6 +690,27 @@ export default function SeatLayoutsPage() {
       layoutId: activeLayoutId,
       trainTypeAr: selectedTrain.type_ar,
       layout: draftLayout,
+    });
+  };
+
+  const deleteCurrentLayout = () => {
+    if (!activeLayoutId || !activeLayoutSummary) return;
+    const confirmed = window.confirm(
+      `سيتم حذف توزيع ${classLabel(activeLayoutSummary)} من القطار ${activeTrainNumber}. هل تريد المتابعة؟`,
+    );
+    if (!confirmed) return;
+    deleteLayoutMutation.mutate(activeLayoutId);
+  };
+
+  const deleteCurrentLayoutForType = () => {
+    if (!activeLayoutId || !selectedTrain || !activeLayoutSummary) return;
+    const confirmed = window.confirm(
+      `سيتم حذف توزيع ${classLabel(activeLayoutSummary)} من ${sameTypeTrains.length} قطار من نوع "${selectedTrain.type_ar}". هل تريد المتابعة؟`,
+    );
+    if (!confirmed) return;
+    deleteTypeMutation.mutate({
+      layoutId: activeLayoutId,
+      trainTypeAr: selectedTrain.type_ar,
     });
   };
 
@@ -708,6 +851,41 @@ export default function SeatLayoutsPage() {
                     <Save className="h-4 w-4" />
                   )}
                   حفظ التوزيع
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={deleteCurrentLayout}
+                  disabled={
+                    !activeLayoutId ||
+                    deleteLayoutMutation.isPending ||
+                    deleteTypeMutation.isPending
+                  }
+                  className="gap-2"
+                >
+                  {deleteLayoutMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  حذف للقطار
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={deleteCurrentLayoutForType}
+                  disabled={
+                    !activeLayoutId ||
+                    !selectedTrain ||
+                    deleteLayoutMutation.isPending ||
+                    deleteTypeMutation.isPending
+                  }
+                  className="gap-2"
+                >
+                  {deleteTypeMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  حذف للنوع
                 </Button>
               </div>
             </CardContent>
@@ -922,6 +1100,41 @@ export default function SeatLayoutsPage() {
                           <div>عرضي Y: {Number(selectedSeat.y).toFixed(0)}</div>
                         </div>
                       )}
+                    </div>
+
+                    <div className="rounded-lg border p-3">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        إدارة الكراسي
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <Button
+                          variant="secondary"
+                          onClick={addSeatToCoach}
+                          disabled={!selectedCoach || saveMutation.isPending}
+                          className="gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          إضافة كرسي
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={deleteSelectedSeat}
+                          disabled={
+                            !selectedSeat ||
+                            !selectedCoach ||
+                            selectedCoach.seats.length <= 1 ||
+                            saveMutation.isPending
+                          }
+                          className="gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          حذف كرسي
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        الإضافة والحذف يتمان على النسخة الحالية، ثم تحتاج إلى حفظ
+                        التوزيع أو تطبيقه على النوع.
+                      </p>
                     </div>
 
                     {layoutDetail && (
