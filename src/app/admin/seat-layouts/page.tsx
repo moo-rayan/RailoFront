@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Armchair,
+  ArrowUp,
   CheckCircle2,
   Copy,
   DownloadCloud,
@@ -60,11 +61,13 @@ type DragState = {
   startClientY: number;
   startSeatX: number;
   startSeatY: number;
+  hasMoved: boolean;
 };
 
 const SEAT_WIDTH = 46;
 const SEAT_HEIGHT = 48;
 const GRID_STEP = 5;
+const SEAT_DRAG_THRESHOLD = 4;
 const SEAT_POSITION_OPTIONS: Array<{
   value: SeatPositionType;
   label: string;
@@ -124,6 +127,31 @@ function isAisleSeat(seat: EditableSeat): boolean {
       seat.position_type === "aisle" ||
       seat.position_type === "window_aisle",
   );
+}
+
+function seatDirection(seat: EditableSeat | null): 0 | 1 {
+  if (!seat) return 0;
+  const rawDirection = seat.direction;
+  if (typeof rawDirection === "boolean") return rawDirection ? 1 : 0;
+  if (typeof rawDirection === "number") return rawDirection ? 1 : 0;
+  const direction = String(rawDirection ?? "").trim().toLowerCase();
+  return [
+    "1",
+    "true",
+    "reverse",
+    "reversed",
+    "backward",
+    "back",
+    "right",
+    "down",
+    "bottom",
+  ].includes(direction)
+    ? 1
+    : 0;
+}
+
+function seatDirectionLabel(seat: EditableSeat | null): string {
+  return seatDirection(seat) === 1 ? "عكس الاتجاه" : "اتجاه أمامي";
 }
 
 function snap(value: number, enabled: boolean): number {
@@ -231,6 +259,7 @@ function SeatMapEditor({
   snapToGrid,
   onSelectSeat,
   onMoveSeat,
+  onToggleSeatDirection,
 }: {
   coach: EditableCoachLayout;
   frame: EditorFrame;
@@ -238,6 +267,7 @@ function SeatMapEditor({
   snapToGrid: boolean;
   onSelectSeat: (seat: EditableSeat) => void;
   onMoveSeat: (seatNumber: string, x: number, y: number) => void;
+  onToggleSeatDirection: (seatNumber: string) => void;
 }) {
   const dragRef = useRef<DragState | null>(null);
   const [draggingSeat, setDraggingSeat] = useState<string | null>(null);
@@ -254,6 +284,7 @@ function SeatMapEditor({
       startClientY: event.clientY,
       startSeatX: Number(seat.x) || 0,
       startSeatY: Number(seat.y) || 0,
+      hasMoved: false,
     };
     setDraggingSeat(seatKey(seat));
     onSelectSeat(seat);
@@ -262,26 +293,50 @@ function SeatMapEditor({
   const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startClientX;
+    const deltaY = event.clientY - drag.startClientY;
+    if (!drag.hasMoved && Math.hypot(deltaX, deltaY) < SEAT_DRAG_THRESHOLD) {
+      return;
+    }
+    drag.hasMoved = true;
     event.preventDefault();
 
     const scaleX = frame.width / Math.max(1, frame.maxY - frame.minY);
     const scaleY = frame.height / Math.max(1, frame.maxX - frame.minX);
     const nextX = snap(
-      drag.startSeatX + (event.clientY - drag.startClientY) / scaleY,
+      drag.startSeatX + deltaY / scaleY,
       snapToGrid,
     );
     const nextY = snap(
-      drag.startSeatY + (event.clientX - drag.startClientX) / scaleX,
+      drag.startSeatY + deltaX / scaleX,
       snapToGrid,
     );
     onMoveSeat(drag.seatNumber, nextX, nextY);
   };
 
-  const finishDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (dragRef.current?.pointerId === event.pointerId) {
-      dragRef.current = null;
-      setDraggingSeat(null);
+  const finishDrag = (
+    event: React.PointerEvent<HTMLButtonElement>,
+    seat: EditableSeat,
+  ) => {
+    const drag = dragRef.current;
+    if (drag?.pointerId !== event.pointerId) return;
+    if (!drag.hasMoved) {
+      onToggleSeatDirection(seat.number);
     }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+    setDraggingSeat(null);
+  };
+
+  const cancelDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
+    setDraggingSeat(null);
   };
 
   return (
@@ -307,6 +362,7 @@ function SeatMapEditor({
           const position = positionSeat(seat, frame);
           const isWindow = isWindowSeat(seat);
           const isAisle = isAisleSeat(seat);
+          const direction = seatDirection(seat);
 
           return (
             <button
@@ -314,11 +370,16 @@ function SeatMapEditor({
               type="button"
               onPointerDown={(event) => handlePointerDown(event, seat)}
               onPointerMove={handlePointerMove}
-              onPointerUp={finishDrag}
-              onPointerCancel={finishDrag}
-              onClick={() => onSelectSeat(seat)}
+              onPointerUp={(event) => finishDrag(event, seat)}
+              onPointerCancel={cancelDrag}
+              onClick={(event) => {
+                if (event.detail === 0) {
+                  onSelectSeat(seat);
+                  onToggleSeatDirection(seat.number);
+                }
+              }}
               className={cn(
-                "absolute flex touch-none select-none flex-col items-center justify-center rounded-lg border text-[11px] font-black shadow-md transition",
+                "absolute touch-none select-none overflow-hidden rounded-lg border text-[11px] font-black shadow-md transition",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                 isWindow
                   ? "border-cyan-300/70 bg-cyan-500 text-white"
@@ -334,10 +395,30 @@ function SeatMapEditor({
                 width: SEAT_WIDTH,
                 height: SEAT_HEIGHT,
               }}
-              title={`مقعد ${seat.number} - ${selectedSeatLabel(seat)}`}
+              title={`مقعد ${seat.number} - ${selectedSeatLabel(seat)} - ${seatDirectionLabel(seat)}`}
+              aria-label={`مقعد ${seat.number} - اضغط لتغيير الاتجاه`}
             >
-              <Armchair className="h-5 w-5" />
-              <span className="leading-none">{seat.number}</span>
+              <span
+                className={cn(
+                  "pointer-events-none absolute inset-1 rounded-md opacity-80 transition-transform",
+                  direction === 1 && "rotate-180",
+                )}
+              >
+                <span className="absolute inset-x-2 top-1 h-1.5 rounded-full bg-current/40 shadow-sm" />
+                <span className="absolute bottom-2 left-1 top-3 w-1.5 rounded-full bg-current/30" />
+                <span className="absolute bottom-2 right-1 top-3 w-1.5 rounded-full bg-current/30" />
+                <span className="absolute inset-x-2 bottom-1.5 h-1 rounded-full bg-black/15" />
+                <ArrowUp className="absolute left-1/2 top-2.5 h-3 w-3 -translate-x-1/2 opacity-70" />
+              </span>
+              <span className="pointer-events-none relative z-10 flex h-full flex-col items-center justify-center pt-2">
+                <Armchair
+                  className={cn(
+                    "h-4 w-4 opacity-90 transition-transform",
+                    direction === 1 && "rotate-180",
+                  )}
+                />
+                <span className="mt-0.5 leading-none">{seat.number}</span>
+              </span>
             </button>
           );
         })}
@@ -865,6 +946,21 @@ export default function SeatLayoutsPage() {
     });
   };
 
+  const toggleSeatDirection = (seatNumber: string) => {
+    if (selectedCoachIndex < 0) return;
+    setDraftState((current) => {
+      const base =
+        current?.sourceKey === detailKey ? current.layout : draftLayout;
+      if (!base || !detailKey) return current;
+      const next = cloneLayout(base);
+      const coach = next.coaches[selectedCoachIndex];
+      const seat = coach?.seats.find((item) => item.number === seatNumber);
+      if (!seat) return current;
+      seat.direction = seatDirection(seat) === 1 ? 0 : 1;
+      return { sourceKey: detailKey, layout: next };
+    });
+  };
+
   const addSeatToCoach = () => {
     if (selectedCoachIndex < 0 || !selectedCoach) return;
     const position = newSeatCoordinates(selectedCoach, selectedSeat);
@@ -876,6 +972,7 @@ export default function SeatLayoutsPage() {
       y: position.y,
       row_index: selectedSeat?.row_index ?? -1,
       position_type: newSeatPositionType,
+      direction: seatDirection(selectedSeat),
       is_window: false,
       is_aisle: false,
     };
@@ -1598,6 +1695,7 @@ export default function SeatLayoutsPage() {
                         snapToGrid={snapToGrid}
                         onSelectSeat={(seat) => setSelectedSeatId(seatKey(seat))}
                         onMoveSeat={moveSeat}
+                        onToggleSeatDirection={toggleSeatDirection}
                       />
                     ) : (
                       <div className="text-sm text-muted-foreground">
@@ -1676,6 +1774,16 @@ export default function SeatLayoutsPage() {
                               </SelectContent>
                             </Select>
                           </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => toggleSeatDirection(selectedSeat.number)}
+                            disabled={saveMutation.isPending}
+                            className="mt-3 w-full gap-2"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                            {seatDirectionLabel(selectedSeat)}
+                          </Button>
                         </>
                       )}
                     </div>

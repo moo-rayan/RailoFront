@@ -31,6 +31,7 @@ export interface EditableSeat {
   y: number;
   row_index?: number;
   position_type: SeatPositionType;
+  direction?: number | string | boolean;
   is_window?: boolean;
   is_aisle?: boolean;
   [key: string]: unknown;
