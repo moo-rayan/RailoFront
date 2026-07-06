@@ -6,6 +6,7 @@ export interface AddStopInput {
   stop_order: number;
   time_ar: string;
   time_en?: string;
+  passing_note?: string;
   passing_train_numbers?: string[];
 }
 
@@ -62,6 +63,7 @@ export const tripsApi = {
     data: {
       time_ar?: string;
       time_en?: string;
+      passing_note?: string;
       passing_train_numbers?: string[];
     },
   ): Promise<TripStop> => {

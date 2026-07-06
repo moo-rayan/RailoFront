@@ -4,10 +4,9 @@ import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { tripsApi } from "@/lib/api/trips"
 import { stationsApi } from "@/lib/api/stations"
-import { trainsApi } from "@/lib/api/trains"
 import { dataBundleApi } from "@/lib/api/data-bundle"
 import { Trip, TripStop } from "@/types"
-import type { Station, Train as TrainRecord } from "@/types"
+import type { Station } from "@/types"
 import {
   Dialog,
   DialogContent,
@@ -25,7 +24,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowRightLeft, Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check, Train, Pencil, RefreshCw } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check, Train, Pencil, RefreshCw } from "lucide-react"
 import { TrainRouteMap } from "./train-route-map"
 import { toast } from "sonner"
 
@@ -510,44 +510,18 @@ function StopTimeCell({ stop, tripId }: { stop: TripStop; tripId: number }) {
   )
 }
 
-function StopPassingTrainsCell({
-  stop,
-  trip,
-  trainOptions,
-  trainOptionsLoading,
-  trainOptionsError,
-}: {
-  stop: TripStop
-  trip: Trip
-  trainOptions: TrainRecord[]
-  trainOptionsLoading: boolean
-  trainOptionsError: boolean
-}) {
-  const [trainNumber, setTrainNumber] = useState("")
-  const [showResults, setShowResults] = useState(false)
+function StopPassingNoteCell({ stop, trip }: { stop: TripStop; trip: Trip }) {
+  const [note, setNote] = useState(stop.passing_note ?? "")
   const queryClient = useQueryClient()
-  const searchRef = useRef<HTMLDivElement>(null)
-  const passingTrainNumbers = stop.passing_train_numbers ?? []
-
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowResults(false)
-      }
-    }
-    document.addEventListener("mousedown", handle)
-    return () => document.removeEventListener("mousedown", handle)
-  }, [])
 
   const updateMutation = useMutation({
-    mutationFn: (nextTrainNumbers: string[]) =>
+    mutationFn: (nextNote: string) =>
       tripsApi.updateStop(trip.id, stop.id, {
-        passing_train_numbers: nextTrainNumbers,
+        passing_note: nextNote.trim(),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["train-trips"] })
-      setTrainNumber("")
-      toast.success("تم تحديث قطارات المرور")
+      toast.success("تم تحديث ملاحظة الوقفة")
     },
     onError: (error: unknown) => {
       const message =
@@ -561,173 +535,62 @@ function StopPassingTrainsCell({
         error.response.data !== null &&
         "detail" in error.response.data
           ? String(error.response.data.detail)
-          : "فشل تحديث قطارات المرور"
+          : "فشل تحديث ملاحظة الوقفة"
       toast.error(message)
     },
   })
 
-  const cleanTrainQuery = trainNumber.trim()
-  const trainOptionEntries = trainOptions.map((train) => ({
-    train,
-    trainNumber: String(train.train_id ?? "").trim(),
-  }))
-  const filteredTrainOptions = cleanTrainQuery
-    ? trainOptionEntries
-        .filter(
-          ({ trainNumber: optionTrainNumber }) =>
-            optionTrainNumber.includes(cleanTrainQuery) &&
-            optionTrainNumber !== trip.train_number &&
-            !passingTrainNumbers.includes(optionTrainNumber),
-        )
-        .sort((a, b) => {
-          const aStarts = a.trainNumber.startsWith(cleanTrainQuery) ? 0 : 1
-          const bStarts = b.trainNumber.startsWith(cleanTrainQuery) ? 0 : 1
-          if (aStarts !== bStarts) return aStarts - bStarts
-          return a.trainNumber.localeCompare(b.trainNumber, "en", { numeric: true })
-        })
-        .slice(0, 8)
-    : []
-
-  const exactTrainNumber = filteredTrainOptions.find(
-    ({ trainNumber: optionTrainNumber }) => optionTrainNumber === cleanTrainQuery,
-  )?.trainNumber
-
-  function selectPassingTrain(targetTrainNumber: string) {
-    const cleanTrainNumber = targetTrainNumber.trim()
-    if (!cleanTrainNumber) return
-    if (cleanTrainNumber === trip.train_number) {
-      toast.error("لا يمكن إضافة نفس القطار كقطار مرور")
-      return
-    }
-    if (passingTrainNumbers.includes(cleanTrainNumber)) {
-      toast.error("هذا القطار مضاف بالفعل لهذه الوقفة")
-      return
-    }
-    if (!trainOptionEntries.some(({ trainNumber: optionTrainNumber }) => optionTrainNumber === cleanTrainNumber)) {
-      toast.error("اختر القطار من نتائج البحث")
-      return
-    }
-
-    setShowResults(false)
-    updateMutation.mutate([...passingTrainNumbers, cleanTrainNumber])
-  }
-
-  function addExactPassingTrain() {
-    if (!exactTrainNumber) {
-      toast.error("اختر القطار من نتائج البحث")
-      return
-    }
-    selectPassingTrain(exactTrainNumber)
-  }
-
-  function removePassingTrain(targetTrainNumber: string) {
-    updateMutation.mutate(
-      passingTrainNumbers.filter(
-        (currentTrainNumber) => currentTrainNumber !== targetTrainNumber,
-      ),
-    )
-  }
-
+  const currentNote = (stop.passing_note ?? "").trim()
+  const cleanNote = note.trim()
+  const hasChanges = cleanNote !== currentNote
   const busy = updateMutation.isPending
 
   return (
-    <div className="min-w-56 space-y-2">
-      <div className="flex flex-wrap gap-1">
-        {passingTrainNumbers.length === 0 ? (
-          <span className="text-xs text-muted-foreground">لا يوجد مرور</span>
-        ) : (
-          passingTrainNumbers.map((currentTrainNumber) => (
-            <span
-              key={currentTrainNumber}
-              className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"
+    <div className="min-w-64 space-y-2">
+      <Textarea
+        value={note}
+        onChange={(event) => setNote(event.target.value.slice(0, 180))}
+        placeholder="اكتب ملاحظة تظهر تحت الوقفة في التطبيق..."
+        className="min-h-16 resize-y text-sm leading-relaxed"
+        dir="rtl"
+        maxLength={180}
+      />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] text-muted-foreground">
+          {note.length}/180
+        </span>
+        <div className="flex items-center gap-1">
+          {(note || currentNote) && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setNote("")
+                if (currentNote) updateMutation.mutate("")
+              }}
+              disabled={busy}
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
             >
-              <ArrowRightLeft className="h-3 w-3" />
-              مرور {currentTrainNumber}
-              <button
-                type="button"
-                className="rounded-full text-primary/70 hover:text-destructive"
-                onClick={() => removePassingTrain(currentTrainNumber)}
-                disabled={busy}
-                title="حذف قطار المرور"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))
-        )}
-      </div>
-      <div ref={searchRef} className="relative flex items-center gap-1">
-        <div className="relative">
-          <Input
-            value={trainNumber}
-            onChange={(event) => {
-              setTrainNumber(event.target.value)
-              setShowResults(true)
-            }}
-            onFocus={() => {
-              if (cleanTrainQuery) setShowResults(true)
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") addExactPassingTrain()
-            }}
-            placeholder="ابحث برقم القطار"
-            className="h-8 w-36 text-center text-xs"
-            dir="ltr"
-          />
-          {showResults && cleanTrainQuery && (
-            <div
-              className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg"
-              dir="rtl"
-            >
-              {trainOptionsLoading ? (
-                <div className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  جاري البحث...
-                </div>
-              ) : trainOptionsError ? (
-                <div className="px-3 py-2 text-center text-xs text-destructive">
-                  تعذر تحميل قائمة القطارات
-                </div>
-              ) : filteredTrainOptions.length > 0 ? (
-                filteredTrainOptions.map(({ train, trainNumber: optionTrainNumber }) => (
-                  <button
-                    key={optionTrainNumber}
-                    type="button"
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-right text-xs transition-colors hover:bg-accent"
-                    onClick={() => selectPassingTrain(optionTrainNumber)}
-                    disabled={busy}
-                  >
-                    <span className="min-w-0 truncate text-muted-foreground">
-                      {train.type_ar || train.type_en || "قطار"}
-                    </span>
-                    <span className="font-mono text-sm font-semibold text-foreground">
-                      {optionTrainNumber}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-center text-xs text-muted-foreground">
-                  لا توجد نتائج مطابقة
-                </div>
-              )}
-            </div>
+              مسح
+            </Button>
           )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => updateMutation.mutate(cleanNote)}
+            disabled={busy || !hasChanges}
+            className="h-7 gap-1 px-2 text-xs"
+          >
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}
+            حفظ
+          </Button>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={addExactPassingTrain}
-          disabled={busy || !exactTrainNumber}
-          className="h-8 gap-1 px-2 text-xs"
-        >
-          {busy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-          مرور
-        </Button>
       </div>
     </div>
   )
@@ -736,11 +599,6 @@ function StopPassingTrainsCell({
 function TripDetail({ trip }: { trip: Trip }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const queryClient = useQueryClient()
-  const { data: trainsData, isLoading: trainOptionsLoading, isError: trainOptionsError } = useQuery({
-    queryKey: ["trains", "passing-options"],
-    queryFn: () => trainsApi.getAll(1, 2000, true),
-    staleTime: 60_000,
-  })
 
   const removeMutation = useMutation({
     mutationFn: (stopId: number) => tripsApi.removeStop(trip.id, stopId),
@@ -748,7 +606,6 @@ function TripDetail({ trip }: { trip: Trip }) {
   })
 
   const sortedStops = [...(trip.stops ?? [])].sort((a, b) => a.stop_order - b.stop_order)
-  const trainOptions = trainsData?.items ?? []
 
   return (
     <div className="space-y-4">
@@ -840,7 +697,7 @@ function TripDetail({ trip }: { trip: Trip }) {
                       <TableHead className="text-right w-12">#</TableHead>
                       <TableHead className="text-right">المحطة</TableHead>
                       <TableHead className="text-right">الوقت</TableHead>
-                      <TableHead className="text-right">قطارات المرور</TableHead>
+                      <TableHead className="text-right">ملاحظة</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
@@ -867,12 +724,10 @@ function TripDetail({ trip }: { trip: Trip }) {
                           <StopTimeCell stop={stop} tripId={trip.id} />
                         </TableCell>
                         <TableCell>
-                          <StopPassingTrainsCell
+                          <StopPassingNoteCell
+                            key={`${stop.id}:${stop.passing_note ?? ""}`}
                             stop={stop}
                             trip={trip}
-                            trainOptions={trainOptions}
-                            trainOptionsLoading={trainOptionsLoading}
-                            trainOptionsError={trainOptionsError}
                           />
                         </TableCell>
                         <TableCell>

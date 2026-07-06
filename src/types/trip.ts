@@ -7,6 +7,7 @@ export interface TripStop {
   time_ar: string;
   time_en: string;
   passing_train_numbers: string[];
+  passing_note: string;
 }
 
 export interface Trip {
@@ -27,7 +28,7 @@ export interface Trip {
   duration_ar: string;
   duration_en: string;
   stops_count: number;
-  fares: Record<string, any> | null;
+  fares: Record<string, unknown> | null;
   has_fares: boolean;
   stops: TripStop[];
   created_at?: string;
