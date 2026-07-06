@@ -1,9 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { tripsApi } from "@/lib/api/trips"
 import { stationsApi } from "@/lib/api/stations"
+import { trainsApi } from "@/lib/api/trains"
+import { dataBundleApi } from "@/lib/api/data-bundle"
 import { Trip, TripStop } from "@/types"
 import type { Station } from "@/types"
 import {
@@ -23,7 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check, Train, Pencil } from "lucide-react"
+import { ArrowRightLeft, Clock, MapPin, Map as MapIcon, List, Plus, Trash2, Search, X, Loader2, Check, Train, Pencil, RefreshCw } from "lucide-react"
 import { TrainRouteMap } from "./train-route-map"
 import { toast } from "sonner"
 
@@ -88,6 +90,10 @@ export function TrainStopsDialog({
           </div>
         )}
 
+        {!isLoading && !error && (
+          <PassingStationsManager trainNumber={trainNumber} />
+        )}
+
         {trips && trips.length > 0 && (
           <div className="space-y-4">
             {/* Trip selector if multiple trips */}
@@ -143,6 +149,244 @@ export function TrainStopsDialog({
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ── Passing Stations Manager ─────────────────────────────────────────────────
+
+function PassingStationsManager({ trainNumber }: { trainNumber: string }) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<Station[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null)
+  const [showResults, setShowResults] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const queryClient = useQueryClient()
+
+  const { data: train, isLoading: trainLoading } = useQuery({
+    queryKey: ["train", trainNumber],
+    queryFn: () => trainsApi.getById(trainNumber),
+    enabled: !!trainNumber,
+    staleTime: 30000,
+  })
+
+  const { data: stationsData } = useQuery({
+    queryKey: ["stations", "passing-manager"],
+    queryFn: () => stationsApi.getAll(1, 2000),
+    enabled: !!trainNumber,
+    staleTime: 60000,
+  })
+
+  const passingStationIds = useMemo(
+    () => train?.passing_station_ids ?? [],
+    [train?.passing_station_ids],
+  )
+  const stationsById = new Map(
+    (stationsData?.items ?? []).map((station) => [station.id, station]),
+  )
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setShowResults(false)
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const res = await stationsApi.search(searchQuery.trim(), 1, 10)
+        setSearchResults(
+          res.items.filter((station) => !passingStationIds.includes(station.id)),
+        )
+        setShowResults(true)
+      } catch {
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }, 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [passingStationIds, searchQuery])
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowResults(false)
+      }
+    }
+    document.addEventListener("mousedown", handle)
+    return () => document.removeEventListener("mousedown", handle)
+  }, [])
+
+  const updateMutation = useMutation({
+    mutationFn: (nextIds: number[]) =>
+      trainsApi.update(trainNumber, { passing_station_ids: nextIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["train", trainNumber] })
+      queryClient.invalidateQueries({ queryKey: ["trains"] })
+      setSelectedStation(null)
+      setSearchQuery("")
+      setShowResults(false)
+      toast.success("تم تحديث محطات المرور")
+    },
+    onError: () => {
+      toast.error("فشل تحديث محطات المرور")
+    },
+  })
+
+  const rebuildBundleMutation = useMutation({
+    mutationFn: dataBundleApi.rebuild,
+    onSuccess: (result) => {
+      toast.success(`تم تحديث الباندل للإصدار ${result.version.slice(0, 8)}`)
+    },
+    onError: () => {
+      toast.error("فشل تحديث الباندل، حاول مرة أخرى")
+    },
+  })
+
+  function addPassingStation() {
+    if (!selectedStation || passingStationIds.includes(selectedStation.id)) return
+    updateMutation.mutate([...passingStationIds, selectedStation.id])
+  }
+
+  function removePassingStation(stationId: number) {
+    updateMutation.mutate(passingStationIds.filter((id) => id !== stationId))
+  }
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-4" dir="rtl">
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <ArrowRightLeft className="h-4 w-4 text-primary" />
+            محطات مرور القطار بدون توقف
+          </p>
+          <p className="text-xs text-muted-foreground">
+            ستظهر في التطبيق تحت وقفة نفس المحطة بصيغة: مرور {trainNumber}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="w-fit">
+            {trainLoading ? "..." : `${passingStationIds.length} محطة`}
+          </Badge>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => rebuildBundleMutation.mutate()}
+            disabled={rebuildBundleMutation.isPending}
+            className="h-8 gap-1 text-xs"
+          >
+            {rebuildBundleMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            تحديث الباندل
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+        <div ref={searchRef} className="relative">
+          <div className="relative">
+            <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="ابحث عن محطة مرور..."
+              value={selectedStation ? selectedStation.name_ar : searchQuery}
+              onChange={(e) => {
+                setSelectedStation(null)
+                setSearchQuery(e.target.value)
+              }}
+              onFocus={() => searchResults.length > 0 && setShowResults(true)}
+              className="pr-9 text-right"
+            />
+            {selectedStation && (
+              <button
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setSelectedStation(null)
+                  setSearchQuery("")
+                }}
+                type="button"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {isSearching && !selectedStation && (
+              <Loader2 className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          {showResults && searchResults.length > 0 && !selectedStation && (
+            <div className="absolute top-full z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-lg border bg-card shadow-lg">
+              {searchResults.map((station) => (
+                <button
+                  key={station.id}
+                  type="button"
+                  className="flex w-full items-center gap-2 border-b px-3 py-2 text-right text-sm last:border-0 hover:bg-accent"
+                  onClick={() => {
+                    setSelectedStation(station)
+                    setSearchQuery("")
+                    setShowResults(false)
+                  }}
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="font-medium">{station.name_ar}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {station.name_en}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Button
+          type="button"
+          onClick={addPassingStation}
+          disabled={!selectedStation || updateMutation.isPending}
+          className="gap-1"
+        >
+          {updateMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
+          إضافة مرور
+        </Button>
+      </div>
+
+      {passingStationIds.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {passingStationIds.map((stationId) => {
+            const station = stationsById.get(stationId)
+            return (
+              <span
+                key={stationId}
+                className="inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs"
+              >
+                <MapPin className="h-3 w-3 text-primary" />
+                <span>{station?.name_ar ?? `محطة ${stationId}`}</span>
+                <button
+                  type="button"
+                  className="mr-1 rounded-full text-muted-foreground hover:text-destructive"
+                  onClick={() => removePassingStation(stationId)}
+                  disabled={updateMutation.isPending}
+                  title="حذف محطة المرور"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

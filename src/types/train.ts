@@ -14,6 +14,7 @@ export interface Train {
   arrival_en: string;
   note_ar: string;
   note_en: string;
+  passing_station_ids: number[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -34,6 +35,7 @@ export interface CreateTrainInput {
   arrival_en?: string;
   note_ar?: string;
   note_en?: string;
+  passing_station_ids?: number[];
 }
 
 export interface UpdateTrainInput {
@@ -50,6 +52,7 @@ export interface UpdateTrainInput {
   arrival_en?: string;
   note_ar?: string;
   note_en?: string;
+  passing_station_ids?: number[];
   is_active?: boolean;
 }
 
