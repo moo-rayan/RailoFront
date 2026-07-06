@@ -7,7 +7,7 @@ import { stationsApi } from "@/lib/api/stations"
 import { trainsApi } from "@/lib/api/trains"
 import { dataBundleApi } from "@/lib/api/data-bundle"
 import { Trip, TripStop } from "@/types"
-import type { Station } from "@/types"
+import type { Station, Train as TrainRecord } from "@/types"
 import {
   Dialog,
   DialogContent,
@@ -510,11 +510,32 @@ function StopTimeCell({ stop, tripId }: { stop: TripStop; tripId: number }) {
   )
 }
 
-function StopPassingTrainsCell({ stop, trip }: { stop: TripStop; trip: Trip }) {
+function StopPassingTrainsCell({
+  stop,
+  trip,
+  trainOptions,
+  trainOptionsLoading,
+}: {
+  stop: TripStop
+  trip: Trip
+  trainOptions: TrainRecord[]
+  trainOptionsLoading: boolean
+}) {
   const [trainNumber, setTrainNumber] = useState("")
-  const [validating, setValidating] = useState(false)
+  const [showResults, setShowResults] = useState(false)
   const queryClient = useQueryClient()
+  const searchRef = useRef<HTMLDivElement>(null)
   const passingTrainNumbers = stop.passing_train_numbers ?? []
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowResults(false)
+      }
+    }
+    document.addEventListener("mousedown", handle)
+    return () => document.removeEventListener("mousedown", handle)
+  }, [])
 
   const updateMutation = useMutation({
     mutationFn: (nextTrainNumbers: string[]) =>
@@ -543,8 +564,30 @@ function StopPassingTrainsCell({ stop, trip }: { stop: TripStop; trip: Trip }) {
     },
   })
 
-  async function addPassingTrain() {
-    const cleanTrainNumber = trainNumber.trim()
+  const cleanTrainQuery = trainNumber.trim()
+  const filteredTrainOptions = cleanTrainQuery
+    ? trainOptions
+        .filter(
+          (train) =>
+            train.train_id.includes(cleanTrainQuery) &&
+            train.train_id !== trip.train_number &&
+            !passingTrainNumbers.includes(train.train_id),
+        )
+        .sort((a, b) => {
+          const aStarts = a.train_id.startsWith(cleanTrainQuery) ? 0 : 1
+          const bStarts = b.train_id.startsWith(cleanTrainQuery) ? 0 : 1
+          if (aStarts !== bStarts) return aStarts - bStarts
+          return a.train_id.localeCompare(b.train_id, "en", { numeric: true })
+        })
+        .slice(0, 8)
+    : []
+
+  const exactTrainNumber = filteredTrainOptions.find(
+    (train) => train.train_id === cleanTrainQuery,
+  )?.train_id
+
+  function selectPassingTrain(targetTrainNumber: string) {
+    const cleanTrainNumber = targetTrainNumber.trim()
     if (!cleanTrainNumber) return
     if (cleanTrainNumber === trip.train_number) {
       toast.error("لا يمكن إضافة نفس القطار كقطار مرور")
@@ -554,16 +597,21 @@ function StopPassingTrainsCell({ stop, trip }: { stop: TripStop; trip: Trip }) {
       toast.error("هذا القطار مضاف بالفعل لهذه الوقفة")
       return
     }
-
-    setValidating(true)
-    try {
-      await trainsApi.getById(cleanTrainNumber)
-      updateMutation.mutate([...passingTrainNumbers, cleanTrainNumber])
-    } catch {
-      toast.error("رقم القطار غير موجود")
-    } finally {
-      setValidating(false)
+    if (!trainOptions.some((train) => train.train_id === cleanTrainNumber)) {
+      toast.error("اختر القطار من نتائج البحث")
+      return
     }
+
+    setShowResults(false)
+    updateMutation.mutate([...passingTrainNumbers, cleanTrainNumber])
+  }
+
+  function addExactPassingTrain() {
+    if (!exactTrainNumber) {
+      toast.error("اختر القطار من نتائج البحث")
+      return
+    }
+    selectPassingTrain(exactTrainNumber)
   }
 
   function removePassingTrain(targetTrainNumber: string) {
@@ -574,7 +622,7 @@ function StopPassingTrainsCell({ stop, trip }: { stop: TripStop; trip: Trip }) {
     )
   }
 
-  const busy = validating || updateMutation.isPending
+  const busy = updateMutation.isPending
 
   return (
     <div className="min-w-56 space-y-2">
@@ -602,23 +650,65 @@ function StopPassingTrainsCell({ stop, trip }: { stop: TripStop; trip: Trip }) {
           ))
         )}
       </div>
-      <div className="flex items-center gap-1">
-        <Input
-          value={trainNumber}
-          onChange={(event) => setTrainNumber(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") addPassingTrain()
-          }}
-          placeholder="رقم القطار"
-          className="h-8 w-28 text-center text-xs"
-          dir="ltr"
-        />
+      <div ref={searchRef} className="relative flex items-center gap-1">
+        <div className="relative">
+          <Input
+            value={trainNumber}
+            onChange={(event) => {
+              setTrainNumber(event.target.value)
+              setShowResults(true)
+            }}
+            onFocus={() => {
+              if (cleanTrainQuery) setShowResults(true)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") addExactPassingTrain()
+            }}
+            placeholder="ابحث برقم القطار"
+            className="h-8 w-36 text-center text-xs"
+            dir="ltr"
+          />
+          {showResults && cleanTrainQuery && (
+            <div
+              className="absolute left-0 top-full z-50 mt-1 w-64 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-lg"
+              dir="rtl"
+            >
+              {trainOptionsLoading ? (
+                <div className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  جاري البحث...
+                </div>
+              ) : filteredTrainOptions.length > 0 ? (
+                filteredTrainOptions.map((train) => (
+                  <button
+                    key={train.train_id}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-right text-xs transition-colors hover:bg-accent"
+                    onClick={() => selectPassingTrain(train.train_id)}
+                    disabled={busy}
+                  >
+                    <span className="min-w-0 truncate text-muted-foreground">
+                      {train.type_ar || train.type_en || "قطار"}
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-foreground">
+                      {train.train_id}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-center text-xs text-muted-foreground">
+                  لا توجد نتائج مطابقة
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          onClick={addPassingTrain}
-          disabled={busy || !trainNumber.trim()}
+          onClick={addExactPassingTrain}
+          disabled={busy || !exactTrainNumber}
           className="h-8 gap-1 px-2 text-xs"
         >
           {busy ? (
@@ -636,6 +726,11 @@ function StopPassingTrainsCell({ stop, trip }: { stop: TripStop; trip: Trip }) {
 function TripDetail({ trip }: { trip: Trip }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const queryClient = useQueryClient()
+  const { data: trainsData, isLoading: trainOptionsLoading } = useQuery({
+    queryKey: ["trains", "passing-options"],
+    queryFn: () => trainsApi.getAll(1, 5000, true),
+    staleTime: 60_000,
+  })
 
   const removeMutation = useMutation({
     mutationFn: (stopId: number) => tripsApi.removeStop(trip.id, stopId),
@@ -643,6 +738,7 @@ function TripDetail({ trip }: { trip: Trip }) {
   })
 
   const sortedStops = [...(trip.stops ?? [])].sort((a, b) => a.stop_order - b.stop_order)
+  const trainOptions = trainsData?.items ?? []
 
   return (
     <div className="space-y-4">
@@ -761,7 +857,12 @@ function TripDetail({ trip }: { trip: Trip }) {
                           <StopTimeCell stop={stop} tripId={trip.id} />
                         </TableCell>
                         <TableCell>
-                          <StopPassingTrainsCell stop={stop} trip={trip} />
+                          <StopPassingTrainsCell
+                            stop={stop}
+                            trip={trip}
+                            trainOptions={trainOptions}
+                            trainOptionsLoading={trainOptionsLoading}
+                          />
                         </TableCell>
                         <TableCell>
                           <button
