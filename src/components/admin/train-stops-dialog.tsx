@@ -515,11 +515,13 @@ function StopPassingTrainsCell({
   trip,
   trainOptions,
   trainOptionsLoading,
+  trainOptionsError,
 }: {
   stop: TripStop
   trip: Trip
   trainOptions: TrainRecord[]
   trainOptionsLoading: boolean
+  trainOptionsError: boolean
 }) {
   const [trainNumber, setTrainNumber] = useState("")
   const [showResults, setShowResults] = useState(false)
@@ -565,26 +567,30 @@ function StopPassingTrainsCell({
   })
 
   const cleanTrainQuery = trainNumber.trim()
+  const trainOptionEntries = trainOptions.map((train) => ({
+    train,
+    trainNumber: String(train.train_id ?? "").trim(),
+  }))
   const filteredTrainOptions = cleanTrainQuery
-    ? trainOptions
+    ? trainOptionEntries
         .filter(
-          (train) =>
-            train.train_id.includes(cleanTrainQuery) &&
-            train.train_id !== trip.train_number &&
-            !passingTrainNumbers.includes(train.train_id),
+          ({ trainNumber: optionTrainNumber }) =>
+            optionTrainNumber.includes(cleanTrainQuery) &&
+            optionTrainNumber !== trip.train_number &&
+            !passingTrainNumbers.includes(optionTrainNumber),
         )
         .sort((a, b) => {
-          const aStarts = a.train_id.startsWith(cleanTrainQuery) ? 0 : 1
-          const bStarts = b.train_id.startsWith(cleanTrainQuery) ? 0 : 1
+          const aStarts = a.trainNumber.startsWith(cleanTrainQuery) ? 0 : 1
+          const bStarts = b.trainNumber.startsWith(cleanTrainQuery) ? 0 : 1
           if (aStarts !== bStarts) return aStarts - bStarts
-          return a.train_id.localeCompare(b.train_id, "en", { numeric: true })
+          return a.trainNumber.localeCompare(b.trainNumber, "en", { numeric: true })
         })
         .slice(0, 8)
     : []
 
   const exactTrainNumber = filteredTrainOptions.find(
-    (train) => train.train_id === cleanTrainQuery,
-  )?.train_id
+    ({ trainNumber: optionTrainNumber }) => optionTrainNumber === cleanTrainQuery,
+  )?.trainNumber
 
   function selectPassingTrain(targetTrainNumber: string) {
     const cleanTrainNumber = targetTrainNumber.trim()
@@ -597,7 +603,7 @@ function StopPassingTrainsCell({
       toast.error("هذا القطار مضاف بالفعل لهذه الوقفة")
       return
     }
-    if (!trainOptions.some((train) => train.train_id === cleanTrainNumber)) {
+    if (!trainOptionEntries.some(({ trainNumber: optionTrainNumber }) => optionTrainNumber === cleanTrainNumber)) {
       toast.error("اختر القطار من نتائج البحث")
       return
     }
@@ -678,20 +684,24 @@ function StopPassingTrainsCell({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   جاري البحث...
                 </div>
+              ) : trainOptionsError ? (
+                <div className="px-3 py-2 text-center text-xs text-destructive">
+                  تعذر تحميل قائمة القطارات
+                </div>
               ) : filteredTrainOptions.length > 0 ? (
-                filteredTrainOptions.map((train) => (
+                filteredTrainOptions.map(({ train, trainNumber: optionTrainNumber }) => (
                   <button
-                    key={train.train_id}
+                    key={optionTrainNumber}
                     type="button"
                     className="flex w-full items-center justify-between gap-3 px-3 py-2 text-right text-xs transition-colors hover:bg-accent"
-                    onClick={() => selectPassingTrain(train.train_id)}
+                    onClick={() => selectPassingTrain(optionTrainNumber)}
                     disabled={busy}
                   >
                     <span className="min-w-0 truncate text-muted-foreground">
                       {train.type_ar || train.type_en || "قطار"}
                     </span>
                     <span className="font-mono text-sm font-semibold text-foreground">
-                      {train.train_id}
+                      {optionTrainNumber}
                     </span>
                   </button>
                 ))
@@ -726,9 +736,9 @@ function StopPassingTrainsCell({
 function TripDetail({ trip }: { trip: Trip }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const queryClient = useQueryClient()
-  const { data: trainsData, isLoading: trainOptionsLoading } = useQuery({
+  const { data: trainsData, isLoading: trainOptionsLoading, isError: trainOptionsError } = useQuery({
     queryKey: ["trains", "passing-options"],
-    queryFn: () => trainsApi.getAll(1, 5000, true),
+    queryFn: () => trainsApi.getAll(1, 2000, true),
     staleTime: 60_000,
   })
 
@@ -862,6 +872,7 @@ function TripDetail({ trip }: { trip: Trip }) {
                             trip={trip}
                             trainOptions={trainOptions}
                             trainOptionsLoading={trainOptionsLoading}
+                            trainOptionsError={trainOptionsError}
                           />
                         </TableCell>
                         <TableCell>
