@@ -6,6 +6,7 @@ export interface AddStopInput {
   stop_order: number;
   time_ar: string;
   time_en?: string;
+  passing_train_numbers?: string[];
 }
 
 export interface CreateTripInput {
@@ -55,7 +56,15 @@ export const tripsApi = {
     return response.data;
   },
 
-  updateStop: async (tripId: number, stopId: number, data: { time_ar?: string; time_en?: string }): Promise<TripStop> => {
+  updateStop: async (
+    tripId: number,
+    stopId: number,
+    data: {
+      time_ar?: string;
+      time_en?: string;
+      passing_train_numbers?: string[];
+    },
+  ): Promise<TripStop> => {
     const response = await apiClient.patch(`/trips/${tripId}/stops/${stopId}`, data);
     return response.data;
   },

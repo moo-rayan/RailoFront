@@ -6,6 +6,7 @@ export interface TripStop {
   station_en: string;
   time_ar: string;
   time_en: string;
+  passing_train_numbers: string[];
 }
 
 export interface Trip {
