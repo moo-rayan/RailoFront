@@ -72,13 +72,15 @@ type WorkingHoursForm = {
   notes: string;
 };
 
+type PlatformLocation = "left" | "right";
+
 type KioskFormState = {
   stationId: number | null;
   stationLabel: string;
   stationSearch: string;
   merchantName: string;
   sellerPhone: string;
-  platformLocation: string;
+  platformLocation: PlatformLocation;
   menuItems: MenuItemForm[];
   workingHours: WorkingHoursForm;
   isOpen: boolean;
@@ -106,7 +108,7 @@ function createEmptyForm(): KioskFormState {
     stationSearch: "",
     merchantName: "",
     sellerPhone: "",
-    platformLocation: "",
+    platformLocation: "right",
     menuItems: [createMenuItem()],
     workingHours: {
       from: "",
@@ -123,6 +125,14 @@ function createEmptyForm(): KioskFormState {
 function stationLabel(station: KioskStation | null | undefined) {
   if (!station) return "";
   return `${station.name_ar} - ${station.name_en}`;
+}
+
+function normalizePlatformLocation(value: string | null | undefined): PlatformLocation {
+  return value?.trim().toLowerCase() === "left" ? "left" : "right";
+}
+
+function platformLocationLabel(value: string | null | undefined) {
+  return normalizePlatformLocation(value) === "left" ? "يسار المحطة" : "يمين المحطة";
 }
 
 function isJsonRecord(value: JsonValue | undefined): value is Record<string, JsonValue> {
@@ -199,7 +209,7 @@ function kioskToForm(kiosk: Kiosk): KioskFormState {
     stationSearch: label,
     merchantName: kiosk.merchant_name,
     sellerPhone: kiosk.seller_phone,
-    platformLocation: kiosk.platform_location,
+    platformLocation: normalizePlatformLocation(kiosk.platform_location),
     menuItems: normalizeMenuItems(kiosk.menu),
     workingHours: normalizeWorkingHours(kiosk.working_hours),
     isOpen: kiosk.is_open,
@@ -239,7 +249,7 @@ function buildPayload(form: KioskFormState): KioskPayload {
     station_id: form.stationId,
     merchant_name: form.merchantName.trim(),
     seller_phone: form.sellerPhone.trim(),
-    platform_location: form.platformLocation.trim(),
+    platform_location: form.platformLocation,
     menu,
     working_hours: workingHours,
     is_open: form.isOpen,
@@ -469,7 +479,7 @@ export default function KiosksPage() {
                   <TableRow>
                     <TableHead className="text-right">التاجر</TableHead>
                     <TableHead className="text-right">المحطة</TableHead>
-                    <TableHead className="text-right">الرصيف / المكان</TableHead>
+                    <TableHead className="text-right">مكان الأيقونة</TableHead>
                     <TableHead className="text-right">الهاتف</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
                     <TableHead className="text-right">الإجراءات</TableHead>
@@ -489,7 +499,7 @@ export default function KiosksPage() {
                       <TableCell>
                         <div className="flex items-center gap-2 text-sm">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span>{kiosk.platform_location || "غير محدد"}</span>
+                          <span>{platformLocationLabel(kiosk.platform_location)}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -662,17 +672,39 @@ export default function KiosksPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>مكان الكشك / الرصيف</Label>
-                <Input
-                  value={form.platformLocation}
-                  placeholder="مثال: رصيف 2 بجوار السلم"
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      platformLocation: event.target.value,
-                    }))
-                  }
-                />
+                <Label>مكان أيقونة الكشك على الخريطة</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    ["right", "يمين المحطة"],
+                    ["left", "يسار المحطة"],
+                  ] as const).map(([value, label]) => {
+                    const selected = form.platformLocation === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            platformLocation: value,
+                          }))
+                        }
+                        className={cn(
+                          "flex h-11 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold transition-colors",
+                          selected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-background text-foreground hover:bg-accent",
+                        )}
+                      >
+                        <MapPin className="h-4 w-4" />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  يحدد ظهور أيقونة الكشك يمين أو يسار أيقونة المحطة في الخريطة.
+                </p>
               </div>
 
               <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-3">
