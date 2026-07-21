@@ -47,7 +47,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +59,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
+type MenuItemForm = {
+  id: string;
+  name: string;
+  price: string;
+  available: boolean;
+};
+
+type WorkingHoursForm = {
+  from: string;
+  to: string;
+  closed: boolean;
+  notes: string;
+};
+
 type KioskFormState = {
   stationId: number | null;
   stationLabel: string;
@@ -67,41 +80,116 @@ type KioskFormState = {
   merchantName: string;
   sellerPhone: string;
   platformLocation: string;
-  menuText: string;
-  workingHoursText: string;
+  menuItems: MenuItemForm[];
+  workingHours: WorkingHoursForm;
   isOpen: boolean;
   isActive: boolean;
   isPhoneVisible: boolean;
 };
 
-const emptyForm: KioskFormState = {
-  stationId: null,
-  stationLabel: "",
-  stationSearch: "",
-  merchantName: "",
-  sellerPhone: "",
-  platformLocation: "",
-  menuText: '[\n  {"name": "شاي", "price": 10, "available": true}\n]',
-  workingHoursText:
-    '{\n  "daily": {"from": "08:00", "to": "22:00"}\n}',
-  isOpen: true,
-  isActive: true,
-  isPhoneVisible: false,
-};
+let menuItemSeed = 0;
+
+function createMenuItem(item?: Partial<MenuItemForm>): MenuItemForm {
+  menuItemSeed += 1;
+  return {
+    id: `menu-item-${menuItemSeed}`,
+    name: "",
+    price: "",
+    available: true,
+    ...item,
+  };
+}
+
+function createEmptyForm(): KioskFormState {
+  return {
+    stationId: null,
+    stationLabel: "",
+    stationSearch: "",
+    merchantName: "",
+    sellerPhone: "",
+    platformLocation: "",
+    menuItems: [createMenuItem()],
+    workingHours: {
+      from: "",
+      to: "",
+      closed: false,
+      notes: "",
+    },
+    isOpen: true,
+    isActive: true,
+    isPhoneVisible: false,
+  };
+}
 
 function stationLabel(station: KioskStation | null | undefined) {
   if (!station) return "";
   return `${station.name_ar} - ${station.name_en}`;
 }
 
-function formatJson(value: JsonValue[] | Record<string, JsonValue> | null | undefined) {
-  return JSON.stringify(value ?? {}, null, 2);
+function isJsonRecord(value: JsonValue | undefined): value is Record<string, JsonValue> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseJsonField(text: string, fallback: JsonValue[] | Record<string, JsonValue>) {
-  const trimmed = text.trim();
-  if (!trimmed) return fallback;
-  return JSON.parse(trimmed) as JsonValue[] | Record<string, JsonValue>;
+function valueToString(value: JsonValue | undefined) {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  return "";
+}
+
+function valueToBoolean(value: JsonValue | undefined, fallback = false) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function normalizeMenuItems(value: JsonValue[] | Record<string, JsonValue>) {
+  const source = Array.isArray(value)
+    ? value
+    : Array.isArray(value.items)
+      ? value.items
+      : [];
+
+  const items = source
+    .map((entry) => {
+      if (!isJsonRecord(entry)) return null;
+      return createMenuItem({
+        name: valueToString(entry.name ?? entry.title),
+        price: valueToString(entry.price),
+        available: valueToBoolean(entry.available, true),
+      });
+    })
+    .filter((entry): entry is MenuItemForm => Boolean(entry));
+
+  return items.length > 0 ? items : [createMenuItem()];
+}
+
+function normalizeWorkingHours(value: JsonValue[] | Record<string, JsonValue>): WorkingHoursForm {
+  if (!isJsonRecord(value)) {
+    return { from: "", to: "", closed: false, notes: "" };
+  }
+
+  const daily = isJsonRecord(value.daily) ? value.daily : value;
+  return {
+    from: valueToString(daily.from),
+    to: valueToString(daily.to),
+    closed: valueToBoolean(daily.closed),
+    notes: valueToString(value.notes ?? value.note),
+  };
+}
+
+function normalizeDigits(value: string) {
+  const arabicDigits = "٠١٢٣٤٥٦٧٨٩";
+  const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
+  return value
+    .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)))
+    .replace(/[۰-۹]/g, (digit) => String(persianDigits.indexOf(digit)));
+}
+
+function priceToJson(value: string): JsonValue {
+  const raw = value.trim();
+  if (!raw) return null;
+  const normalized = normalizeDigits(raw).replace(",", ".");
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? numeric : raw;
 }
 
 function kioskToForm(kiosk: Kiosk): KioskFormState {
@@ -113,8 +201,8 @@ function kioskToForm(kiosk: Kiosk): KioskFormState {
     merchantName: kiosk.merchant_name,
     sellerPhone: kiosk.seller_phone,
     platformLocation: kiosk.platform_location,
-    menuText: formatJson(kiosk.menu),
-    workingHoursText: formatJson(kiosk.working_hours),
+    menuItems: normalizeMenuItems(kiosk.menu),
+    workingHours: normalizeWorkingHours(kiosk.working_hours),
     isOpen: kiosk.is_open,
     isActive: kiosk.is_active,
     isPhoneVisible: kiosk.is_phone_visible,
@@ -129,13 +217,32 @@ function buildPayload(form: KioskFormState): KioskPayload {
     throw new Error("اسم التاجر مطلوب");
   }
 
+  const menu = form.menuItems
+    .map((item) => ({
+      name: item.name.trim(),
+      price: priceToJson(item.price),
+      available: item.available,
+    }))
+    .filter((item) => item.name || item.price !== null);
+
+  const workingHours: Record<string, JsonValue> = {
+    daily: {
+      from: form.workingHours.from || null,
+      to: form.workingHours.to || null,
+      closed: form.workingHours.closed,
+    },
+  };
+  if (form.workingHours.notes.trim()) {
+    workingHours.notes = form.workingHours.notes.trim();
+  }
+
   return {
     station_id: form.stationId,
     merchant_name: form.merchantName.trim(),
     seller_phone: form.sellerPhone.trim(),
     platform_location: form.platformLocation.trim(),
-    menu: parseJsonField(form.menuText, []),
-    working_hours: parseJsonField(form.workingHoursText, {}),
+    menu,
+    working_hours: workingHours,
     is_open: form.isOpen,
     is_active: form.isActive,
     is_phone_visible: form.isPhoneVisible,
@@ -151,7 +258,7 @@ export default function KiosksPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingKiosk, setEditingKiosk] = useState<Kiosk | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Kiosk | null>(null);
-  const [form, setForm] = useState<KioskFormState>(emptyForm);
+  const [form, setForm] = useState<KioskFormState>(() => createEmptyForm());
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["kiosks", page, search, activeOnly, openOnly],
@@ -221,7 +328,7 @@ export default function KiosksPage() {
 
   const openCreate = () => {
     setEditingKiosk(null);
-    setForm({ ...emptyForm });
+    setForm(createEmptyForm());
     setFormOpen(true);
   };
 
@@ -471,15 +578,15 @@ export default function KiosksPage() {
       </Card>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-h-[92vh] w-[min(calc(100vw-2rem),1180px)] overflow-y-auto p-0 sm:max-w-[1180px]">
+          <DialogHeader className="border-b px-6 py-5">
             <DialogTitle>{editingKiosk ? "تعديل كشك" : "إضافة كشك جديد"}</DialogTitle>
             <DialogDescription>
               اربط الكشك بمحطة، ثم أدخل بيانات التاجر والمنيو وساعات العمل.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid gap-5 px-6 py-5 lg:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.2fr)]">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>المحطة *</Label>
@@ -569,7 +676,7 @@ export default function KiosksPage() {
                 />
               </div>
 
-              <div className="grid gap-3 rounded-lg border p-4 md:grid-cols-3">
+              <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-3">
                 <ToggleRow
                   label="الكشك مفتوح"
                   checked={form.isOpen}
@@ -598,45 +705,22 @@ export default function KiosksPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Utensils className="h-4 w-4" />
-                  المنيو JSON
-                </Label>
-                <Textarea
-                  value={form.menuText}
-                  dir="ltr"
-                  className="min-h-48 font-mono text-xs"
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      menuText: event.target.value,
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  أوقات العمل JSON
-                </Label>
-                <Textarea
-                  value={form.workingHoursText}
-                  dir="ltr"
-                  className="min-h-36 font-mono text-xs"
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      workingHoursText: event.target.value,
-                    }))
-                  }
-                />
-              </div>
+              <MenuEditor
+                items={form.menuItems}
+                onChange={(menuItems) =>
+                  setForm((current) => ({ ...current, menuItems }))
+                }
+              />
+              <WorkingHoursEditor
+                value={form.workingHours}
+                onChange={(workingHours) =>
+                  setForm((current) => ({ ...current, workingHours }))
+                }
+              />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mx-0 mb-0 rounded-none px-6 py-4">
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               إلغاء
             </Button>
@@ -670,6 +754,171 @@ export default function KiosksPage() {
   );
 }
 
+function MenuEditor({
+  items,
+  onChange,
+}: {
+  items: MenuItemForm[];
+  onChange: (items: MenuItemForm[]) => void;
+}) {
+  const updateItem = (
+    id: string,
+    key: keyof Omit<MenuItemForm, "id">,
+    value: string | boolean,
+  ) => {
+    onChange(
+      items.map((item) => (item.id === id ? { ...item, [key]: value } : item)),
+    );
+  };
+
+  const removeItem = (id: string) => {
+    const nextItems = items.filter((item) => item.id !== id);
+    onChange(nextItems.length > 0 ? nextItems : [createMenuItem()]);
+  };
+
+  return (
+    <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <Label className="flex items-center gap-2 text-base">
+            <Utensils className="h-4 w-4" />
+            المنيو
+          </Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            أضف الأصناف والأسعار بسرعة من صفوف بسيطة.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onChange([...items, createMenuItem()])}
+        >
+          <Plus className="ml-1 h-4 w-4" />
+          إضافة صنف
+        </Button>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((item, index) => (
+          <div
+            key={item.id}
+            className="grid gap-3 rounded-lg border bg-background/70 p-3 md:grid-cols-[minmax(0,1fr)_120px_120px_40px] md:items-end"
+          >
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">
+                الصنف {index + 1}
+              </Label>
+              <Input
+                value={item.name}
+                placeholder="مثال: شاي"
+                onChange={(event) =>
+                  updateItem(item.id, "name", event.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">السعر</Label>
+              <Input
+                value={item.price}
+                inputMode="decimal"
+                placeholder="10"
+                dir="ltr"
+                onChange={(event) =>
+                  updateItem(item.id, "price", event.target.value)
+                }
+              />
+            </div>
+            <div className="flex h-10 items-center justify-between gap-2 rounded-md border px-3">
+              <span className="text-sm">متاح</span>
+              <Switch
+                checked={item.available}
+                onCheckedChange={(checked) =>
+                  updateItem(item.id, "available", checked)
+                }
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              title="حذف الصنف"
+              onClick={() => removeItem(item.id)}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function WorkingHoursEditor({
+  value,
+  onChange,
+}: {
+  value: WorkingHoursForm;
+  onChange: (value: WorkingHoursForm) => void;
+}) {
+  const updateValue = (patch: Partial<WorkingHoursForm>) => {
+    onChange({ ...value, ...patch });
+  };
+
+  return (
+    <section className="space-y-3 rounded-xl border bg-muted/20 p-4">
+      <div>
+        <Label className="flex items-center gap-2 text-base">
+          <Clock className="h-4 w-4" />
+          أوقات العمل
+        </Label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          اختر وقت الفتح والغلق، أو علّم الكشك كمغلق مؤقتاً.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">من</Label>
+          <Input
+            type="time"
+            dir="ltr"
+            value={value.from}
+            disabled={value.closed}
+            onChange={(event) => updateValue({ from: event.target.value })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">إلى</Label>
+          <Input
+            type="time"
+            dir="ltr"
+            value={value.to}
+            disabled={value.closed}
+            onChange={(event) => updateValue({ to: event.target.value })}
+          />
+        </div>
+        <div className="flex h-10 items-center justify-between gap-3 rounded-md border px-3">
+          <span className="whitespace-nowrap text-sm">مغلق مؤقتاً</span>
+          <Switch
+            checked={value.closed}
+            onCheckedChange={(checked) => updateValue({ closed: checked })}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">ملاحظة اختيارية</Label>
+        <Input
+          value={value.notes}
+          placeholder="مثال: الجمعة بعد الصلاة فقط"
+          onChange={(event) => updateValue({ notes: event.target.value })}
+        />
+      </div>
+    </section>
+  );
+}
+
 function ToggleRow({
   label,
   checked,
@@ -680,8 +929,8 @@ function ToggleRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2">
-      <Label className="text-sm">{label}</Label>
+    <div className="flex min-h-11 items-center justify-between gap-3 rounded-md bg-background/70 px-3 py-2">
+      <Label className="whitespace-nowrap text-sm">{label}</Label>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
