@@ -23,13 +23,43 @@ export interface FeatureVoteSummaryItem {
 
 export interface FeatureVoteListResponse {
   total: number;
+  users_count: number;
   page: number;
   page_size: number;
   summary: FeatureVoteSummaryItem[];
   items: FeatureVote[];
 }
 
+export interface FeatureVoteOverviewItem {
+  feature_key: string;
+  total: number;
+  users_count: number;
+  targets_count: number;
+  interested_count: number;
+  not_interested_count: number;
+  other_count: number;
+  latest_at: string | null;
+  target_types: string[];
+  sources: string[];
+}
+
+export interface FeatureVoteOverviewResponse {
+  total_features: number;
+  total_votes: number;
+  items: FeatureVoteOverviewItem[];
+}
+
 export const feedbackApi = {
+  listVoteOverview: async (params?: {
+    q?: string;
+  }): Promise<FeatureVoteOverviewResponse> => {
+    const { data } = await apiClient.get<FeatureVoteOverviewResponse>(
+      "/feedback/admin/votes/overview",
+      { params },
+    );
+    return data;
+  },
+
   listVotes: async (params?: {
     q?: string;
     feature_key?: string;
