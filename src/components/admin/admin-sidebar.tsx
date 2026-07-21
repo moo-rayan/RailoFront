@@ -29,6 +29,7 @@ import {
   Newspaper,
   Megaphone,
   Armchair,
+  Store,
 } from "lucide-react"
 import type { AdminLevel } from "@/lib/stores/auth-store"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -65,6 +66,12 @@ const sidebarItems: SidebarItem[] = [
     title: "توزيع المقاعد",
     href: "/admin/seat-layouts",
     icon: Armchair,
+    minLevel: "monitor",
+  },
+  {
+    title: "أكشاك المحطات",
+    href: "/admin/kiosks",
+    icon: Store,
     minLevel: "monitor",
   },
   {
