@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -830,9 +829,10 @@ function MenuEditor({
               />
             </div>
             <div className="flex h-10 items-center justify-between gap-2 rounded-md border px-3">
-              <span className="text-sm">متاح</span>
-              <Switch
+              <ToggleSwitchButton
+                label="متاح"
                 checked={item.available}
+                className="h-full w-full"
                 onCheckedChange={(checked) =>
                   updateItem(item.id, "available", checked)
                 }
@@ -899,9 +899,10 @@ function WorkingHoursEditor({
           />
         </div>
         <div className="flex h-10 items-center justify-between gap-3 rounded-md border px-3">
-          <span className="whitespace-nowrap text-sm">مغلق مؤقتاً</span>
-          <Switch
+          <ToggleSwitchButton
+            label="مغلق مؤقتاً"
             checked={value.closed}
+            className="h-full w-full"
             onCheckedChange={(checked) => updateValue({ closed: checked })}
           />
         </div>
@@ -929,9 +930,51 @@ function ToggleRow({
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex min-h-11 items-center justify-between gap-3 rounded-md bg-background/70 px-3 py-2">
-      <Label className="whitespace-nowrap text-sm">{label}</Label>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
+    <ToggleSwitchButton
+      label={label}
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+      className="min-h-11 w-full rounded-md bg-background/70 px-3 py-2"
+    />
+  );
+}
+
+function ToggleSwitchButton({
+  label,
+  checked,
+  onCheckedChange,
+  className,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onCheckedChange(!checked)}
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-md text-sm transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        className,
+      )}
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      <span
+        className={cn(
+          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+          checked ? "bg-primary" : "bg-input",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 h-4 w-4 rounded-full bg-background shadow-sm transition-transform",
+            checked ? "translate-x-0.5" : "translate-x-[18px]",
+          )}
+        />
+      </span>
+    </button>
   );
 }
