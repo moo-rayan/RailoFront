@@ -44,6 +44,7 @@ function formatDate(value: string) {
 
 function formatFeatureKey(value: string) {
   if (value === "station_kiosk_ordering") return "طلبات أكشاك المحطات";
+  if (value === "train_onboard_service_ordering") return "طلبات خدمة القطار";
   return value.replace(/_/g, " ");
 }
 
@@ -77,14 +78,21 @@ function targetLabel(vote: FeatureVote) {
   if (vote.target_type === "station" && stationName) {
     return `${stationName}${stationId ? ` (#${stationId})` : ""}`;
   }
+  const trainNumber = readText(vote.context_data, "train_number") || vote.target_id;
+  if (vote.target_type === "train" && trainNumber) {
+    return `قطار ${trainNumber}`;
+  }
   if (!vote.target_id) return vote.target_type === "global" ? "عام" : vote.target_type;
   return `${vote.target_type}: ${vote.target_id}`;
 }
 
 function compactContext(vote: FeatureVote) {
+  const isTrainVote = vote.target_type === "train";
   const parts = [
-    readText(vote.context_data, "station_name"),
-    readText(vote.context_data, "kiosk_id")
+    isTrainVote
+      ? readText(vote.context_data, "route_label")
+      : readText(vote.context_data, "station_name"),
+    !isTrainVote && readText(vote.context_data, "kiosk_id")
       ? `كشك #${readText(vote.context_data, "kiosk_id")}`
       : "",
     readText(vote.client_metadata, "surface"),

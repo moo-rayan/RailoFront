@@ -12,6 +12,9 @@ export interface AppConfig {
   store_url_android: string;
   store_url_ios: string;
   station_schedule_check_enabled: boolean;
+  map_viewer_boost_enabled: boolean;
+  map_viewer_boost_min: number;
+  map_viewer_boost_max: number;
 }
 
 export async function getAppConfig(): Promise<AppConfig> {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getAppConfig, updateAppConfig, type AppConfig } from "@/lib/api/app-config"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   Loader2,
   Save,
   AlertTriangle,
+  Eye,
   Smartphone,
   MapPin,
 } from "lucide-react"
@@ -29,26 +30,19 @@ export default function AppConfigPage() {
     queryFn: getAppConfig,
   })
 
-  const [form, setForm] = useState<Partial<AppConfig>>({})
-  const [hasChanges, setHasChanges] = useState(false)
-
-  useEffect(() => {
-    if (config) {
-      setForm(config)
-      setHasChanges(false)
-    }
-  }, [config])
+  const [draftForm, setDraftForm] = useState<Partial<AppConfig> | null>(null)
+  const form = draftForm ?? config ?? {}
+  const hasChanges = draftForm !== null
 
   const updateField = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
-    setHasChanges(true)
+    setDraftForm((prev) => ({ ...(prev ?? config ?? {}), [key]: value }))
   }
 
   const mutation = useMutation({
     mutationFn: updateAppConfig,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["app-config"] })
-      setHasChanges(false)
+      setDraftForm(null)
     },
   })
 
@@ -115,6 +109,9 @@ export default function AppConfigPage() {
         </Badge>
         <Badge variant={form.force_update ? "destructive" : "secondary"}>
           {form.force_update ? "🔴 تحديث إجباري مفعّل" : "🟢 لا يوجد تحديث إجباري"}
+        </Badge>
+        <Badge variant={form.map_viewer_boost_enabled ? "destructive" : "secondary"}>
+          {form.map_viewer_boost_enabled ? "🔵 تعزيز المشاهدين مفعّل" : "⚪ تعزيز المشاهدين معطّل"}
         </Badge>
       </div>
 
@@ -312,6 +309,55 @@ export default function AppConfigPage() {
               checked={form.station_schedule_check_enabled ?? true}
               onCheckedChange={(v) => updateField("station_schedule_check_enabled", v)}
             />
+          </div>
+          <hr className="border-border" />
+          <div className="space-y-4 rounded-lg border p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="map-viewer-boost" className="flex items-center gap-2 text-base font-medium">
+                  <Eye className="h-4 w-4 text-blue-500" />
+                  تعزيز عدد المشاهدين في الخريطة
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  عند وجود مساهمة نشطة، يعرض التطبيق رقماً داخل هذا المدى إذا كان أعلى من العدد الحقيقي.
+                </p>
+              </div>
+              <Switch
+                id="map-viewer-boost"
+                checked={form.map_viewer_boost_enabled ?? false}
+                onCheckedChange={(v) => updateField("map_viewer_boost_enabled", v)}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="map-viewer-boost-min">أقل عدد مشاهدين</Label>
+                <Input
+                  id="map-viewer-boost-min"
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={form.map_viewer_boost_min ?? 15}
+                  onChange={(e) =>
+                    updateField("map_viewer_boost_min", Number(e.target.value || 0))
+                  }
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="map-viewer-boost-max">أكبر عدد مشاهدين</Label>
+                <Input
+                  id="map-viewer-boost-max"
+                  type="number"
+                  min={0}
+                  max={999}
+                  value={form.map_viewer_boost_max ?? 30}
+                  onChange={(e) =>
+                    updateField("map_viewer_boost_max", Number(e.target.value || 0))
+                  }
+                  dir="ltr"
+                />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
