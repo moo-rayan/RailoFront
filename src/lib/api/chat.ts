@@ -13,6 +13,8 @@ export interface ChatMessage {
   reply_to_message_id?: string;
   reply_to_user_name?: string;
   reply_to_text?: string;
+  love_count?: number;
+  loved_by_me?: boolean;
   timestamp: string;
 }
 
@@ -152,5 +154,90 @@ export const chatApi = {
     const httpUri = new URL(baseUrl);
     const wsScheme = httpUri.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${wsScheme}//${httpUri.host}${httpUri.pathname}/admin/chat/${trainId}/ws?admin_key=${encodeURIComponent(adminKey)}`;
+  },
+
+  getGlobalMessages: async (limit = 80) => {
+    const response = await apiClient.get('/admin/global-chat/messages', {
+      params: { limit },
+    });
+    return response.data as {
+      messages: ChatMessage[];
+      total: number;
+      chat_enabled: boolean;
+      online_users: number;
+    };
+  },
+
+  getGlobalStatus: async () => {
+    const response = await apiClient.get('/admin/global-chat/status');
+    return response.data as {
+      chat_enabled: boolean;
+      online_users: number;
+      message_count: number;
+    };
+  },
+
+  toggleGlobalChat: async (enabled: boolean) => {
+    const response = await apiClient.post('/admin/global-chat/toggle', { enabled });
+    return response.data;
+  },
+
+  sendGlobalAdminMessage: async (
+    text: string,
+    adminName = 'مشرف',
+    replyTo?: ChatMessage | null,
+  ) => {
+    const response = await apiClient.post('/admin/global-chat/send', {
+      text,
+      admin_name: adminName,
+      ...(replyTo
+        ? {
+            reply_to: {
+              message_id: replyTo.id,
+              user_name: replyTo.user_name,
+              text: replyTo.admin_text ?? replyTo.text,
+            },
+          }
+        : {}),
+    });
+    return response.data as { ok: boolean; message?: ChatMessage };
+  },
+
+  deleteGlobalMessage: async (messageId: string) => {
+    const response = await apiClient.delete(`/admin/global-chat/messages/${messageId}`);
+    return response.data as { ok: boolean; message_id: string };
+  },
+
+  clearGlobalChat: async () => {
+    const response = await apiClient.delete('/admin/global-chat/clear');
+    return response.data as { ok: boolean };
+  },
+
+  getGlobalReports: async (status = 'pending', limit = 50) => {
+    const response = await apiClient.get('/admin/global-chat/reports', {
+      params: { report_status: status, limit },
+    });
+    return response.data as { total: number; reports: ChatReport[] };
+  },
+
+  banGlobalChatUser: async (
+    userId: string,
+    reason = '',
+    banType = 'temporary',
+    durationHours = 24,
+  ) => {
+    const response = await apiClient.post(
+      '/admin/global-chat/ban',
+      { user_id: userId, reason, ban_type: banType, duration_hours: durationHours },
+    );
+    return response.data;
+  },
+
+  getGlobalAdminWsUrl: (): string => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+    const adminKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY || 'change-me-admin-key';
+    const httpUri = new URL(baseUrl);
+    const wsScheme = httpUri.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsScheme}//${httpUri.host}${httpUri.pathname}/admin/global-chat/ws?admin_key=${encodeURIComponent(adminKey)}`;
   },
 };

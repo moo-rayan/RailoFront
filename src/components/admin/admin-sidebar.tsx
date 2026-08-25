@@ -31,6 +31,7 @@ import {
   Armchair,
   Store,
   Vote,
+  MessageCircle,
 } from "lucide-react"
 import type { AdminLevel } from "@/lib/stores/auth-store"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -79,6 +80,12 @@ const sidebarItems: SidebarItem[] = [
     title: "تصويت الميزات",
     href: "/admin/feedback-votes",
     icon: Vote,
+    minLevel: "monitor",
+  },
+  {
+    title: "الشات الجماعي",
+    href: "/admin/global-chat",
+    icon: MessageCircle,
     minLevel: "monitor",
   },
   {
