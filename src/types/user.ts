@@ -5,6 +5,10 @@ export interface UserProfile {
   avatar_url: string | null;
   is_contributor: boolean;
   contribution_count: number;
+  total_contribution_distance_km: number;
+  reward_points_balance: number;
+  reward_points_lifetime: number;
+  reward_points_redeemed: number;
   reputation_score: number;
   last_contribution_at: string | null;
   is_captain: boolean;
