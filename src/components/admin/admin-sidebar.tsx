@@ -32,6 +32,7 @@ import {
   Store,
   Vote,
   MessageCircle,
+  Gift,
 } from "lucide-react"
 import type { AdminLevel } from "@/lib/stores/auth-store"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
@@ -110,6 +111,12 @@ const sidebarItems: SidebarItem[] = [
     title: "التتبع الحي",
     href: "/admin/contributors",
     icon: Users,
+    minLevel: "monitor",
+  },
+  {
+    title: "المساهمات",
+    href: "/admin/contributions",
+    icon: Gift,
     minLevel: "monitor",
   },
   {

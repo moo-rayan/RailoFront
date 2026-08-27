@@ -4,6 +4,7 @@ export type { Train, TrainListResponse, CreateTrainInput, UpdateTrainInput } fro
 export type { Trip, TripStop, TripListResponse } from './trip'
 export type { DashboardStats, DashboardRoomsResponse, LiveRoom, RoomContributor, WaitingContributor, RoomEvent, RoomLogsResponse, FeedEntry, FeedResponse, SuspensionInfo, SuspensionListResponse, BanInfo, BanListResponse, CrowdVoter, CrowdReportsResponse } from './contributor'
 export type { UserProfile, UserBanInfo, UsersListResponse, UsersListParams, UserStatsResponse, UserStatsDailyEntry, UserStatsWeeklyEntry } from './user'
+export type { RewardContributor, RewardContributorStats, RewardContributorsParams, RewardContributorsResponse, RewardRedemptionRequest, RewardRedemptionUser, RewardRedemptionsParams, RewardRedemptionsResponse, RedemptionStatus } from './contribution'
 
 export interface ApiResponse<T> {
   success: boolean;
