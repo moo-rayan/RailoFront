@@ -113,6 +113,9 @@ export default function AppConfigPage() {
         <Badge variant={form.map_viewer_boost_enabled ? "destructive" : "secondary"}>
           {form.map_viewer_boost_enabled ? "🔵 تعزيز المشاهدين مفعّل" : "⚪ تعزيز المشاهدين معطّل"}
         </Badge>
+        <Badge variant={form.location_spoof_protection_enabled ? "destructive" : "secondary"}>
+          {form.location_spoof_protection_enabled ? "🛡️ حماية الموقع مفعّلة" : "⚪ حماية الموقع معطّلة"}
+        </Badge>
       </div>
 
       {mutation.isSuccess && (
@@ -355,6 +358,53 @@ export default function AppConfigPage() {
                     updateField("map_viewer_boost_max", Number(e.target.value || 0))
                   }
                   dir="ltr"
+                />
+              </div>
+            </div>
+          </div>
+          <hr className="border-border" />
+          <div className="space-y-4 rounded-lg border border-orange-500/30 bg-orange-500/5 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="location-spoof-protection" className="flex items-center gap-2 text-base font-medium">
+                  <Shield className="h-4 w-4 text-orange-500" />
+                  حماية المساهمة من تزوير الموقع
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  عند التفعيل، سيرفض السيرفر المساهمة إذا كانت قراءة الموقع Mocked أو ظهر تطبيق GPS مزيف معروف.
+                </p>
+              </div>
+              <Switch
+                id="location-spoof-protection"
+                checked={form.location_spoof_protection_enabled ?? false}
+                onCheckedChange={(v) => updateField("location_spoof_protection_enabled", v)}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="flex items-center justify-between rounded-md border bg-background/60 p-3">
+                <div className="space-y-1">
+                  <Label htmlFor="block-mock-locations">رفض Mock Location</Label>
+                  <p className="text-xs text-muted-foreground">
+                    يعتمد على إشارة مزود الموقع في الجهاز.
+                  </p>
+                </div>
+                <Switch
+                  id="block-mock-locations"
+                  checked={form.block_mock_locations_enabled ?? true}
+                  onCheckedChange={(v) => updateField("block_mock_locations_enabled", v)}
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-md border bg-background/60 p-3">
+                <div className="space-y-1">
+                  <Label htmlFor="block-fake-gps-apps">حظر تطبيقات GPS المزيفة</Label>
+                  <p className="text-xs text-muted-foreground">
+                    فحص قائمة محددة من التطبيقات المعروفة بدون صلاحية قراءة كل التطبيقات.
+                  </p>
+                </div>
+                <Switch
+                  id="block-fake-gps-apps"
+                  checked={form.block_fake_gps_apps_enabled ?? true}
+                  onCheckedChange={(v) => updateField("block_fake_gps_apps_enabled", v)}
                 />
               </div>
             </div>

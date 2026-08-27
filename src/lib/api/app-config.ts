@@ -15,6 +15,9 @@ export interface AppConfig {
   map_viewer_boost_enabled: boolean;
   map_viewer_boost_min: number;
   map_viewer_boost_max: number;
+  location_spoof_protection_enabled: boolean;
+  block_mock_locations_enabled: boolean;
+  block_fake_gps_apps_enabled: boolean;
 }
 
 export async function getAppConfig(): Promise<AppConfig> {
