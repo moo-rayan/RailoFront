@@ -60,6 +60,7 @@ export interface RewardRedemptionRequest {
   reward_title_ar: string;
   reward_title_en: string;
   points_required: number;
+  target_phone: string;
   status: RedemptionStatus;
   user_note: string;
   admin_note: string;

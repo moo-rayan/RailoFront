@@ -10,6 +10,7 @@ import {
   Coins,
   Gift,
   Hourglass,
+  Phone,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -156,33 +157,48 @@ function RedemptionActions({
   return (
     <div className="flex flex-wrap gap-2">
       {item.status === "pending" && (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={disabled}
-          onClick={() => onUpdate(item.id, "approved")}
-          className="h-8 border-sky-500/40 text-sky-700 hover:bg-sky-500/10 dark:text-sky-300"
-        >
-          قبول
-        </Button>
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => onUpdate(item.id, "approved")}
+            className="h-8 border-sky-500/40 text-sky-700 hover:bg-sky-500/10 dark:text-sky-300"
+          >
+            قبول
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => onUpdate(item.id, "rejected")}
+            className="h-8 border-rose-500/40 text-rose-700 hover:bg-rose-500/10 dark:text-rose-300"
+          >
+            رفض
+          </Button>
+        </>
       )}
-      <Button
-        size="sm"
-        disabled={disabled}
-        onClick={() => onUpdate(item.id, "fulfilled")}
-        className="h-8"
-      >
-        تنفيذ
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={disabled}
-        onClick={() => onUpdate(item.id, "rejected")}
-        className="h-8 border-rose-500/40 text-rose-700 hover:bg-rose-500/10 dark:text-rose-300"
-      >
-        رفض
-      </Button>
+      {item.status === "approved" && (
+        <>
+          <Button
+            size="sm"
+            disabled={disabled}
+            onClick={() => onUpdate(item.id, "fulfilled")}
+            className="h-8"
+          >
+            تنفيذ
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={disabled}
+            onClick={() => onUpdate(item.id, "rejected")}
+            className="h-8 border-rose-500/40 text-rose-700 hover:bg-rose-500/10 dark:text-rose-300"
+          >
+            رفض
+          </Button>
+        </>
+      )}
     </div>
   );
 }
@@ -314,7 +330,7 @@ export default function ContributionsPage() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="ابحث باسم المستخدم أو البريد أو رقم المستخدم..."
+              placeholder="ابحث باسم المستخدم أو البريد أو رقم الهاتف أو رقم المستخدم..."
               className="pr-9"
             />
           </div>
@@ -465,6 +481,7 @@ export default function ContributionsPage() {
                     <TableRow>
                       <TableHead className="text-right">المستخدم</TableHead>
                       <TableHead className="text-right">المكافأة</TableHead>
+                      <TableHead className="text-right">رقم الشحن</TableHead>
                       <TableHead className="text-right">النقاط</TableHead>
                       <TableHead className="text-right">الحالة</TableHead>
                       <TableHead className="text-right">تاريخ الطلب</TableHead>
@@ -499,6 +516,12 @@ export default function ContributionsPage() {
                           <div className="font-semibold">{item.reward_title_ar}</div>
                           <div className="text-xs text-muted-foreground" dir="ltr">
                             {item.reward_key}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="inline-flex items-center gap-2 rounded-full border bg-muted/40 px-3 py-1 text-sm font-semibold" dir="ltr">
+                            <Phone className="h-3.5 w-3.5 text-primary" />
+                            {item.target_phone || "غير متاح"}
                           </div>
                         </TableCell>
                         <TableCell className="font-semibold">
