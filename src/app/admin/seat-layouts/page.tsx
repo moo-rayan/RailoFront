@@ -2,10 +2,12 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
 import {
   Armchair,
   ArrowUp,
   CheckCircle2,
+  Coffee,
   Copy,
   DownloadCloud,
   Grid3X3,
@@ -24,6 +26,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -68,6 +78,7 @@ const SEAT_WIDTH = 46;
 const SEAT_HEIGHT = 48;
 const GRID_STEP = 5;
 const SEAT_DRAG_THRESHOLD = 4;
+const BUFFET_CLASS_CODE = "BUFFET";
 const SEAT_POSITION_OPTIONS: Array<{
   value: SeatPositionType;
   label: string;
@@ -453,6 +464,8 @@ export default function SeatLayoutsPage() {
   const [manualClassNameEn, setManualClassNameEn] = useState("Manual layout");
   const [manualCoachCount, setManualCoachCount] = useState("1");
   const [manualSeatsPerCoach, setManualSeatsPerCoach] = useState("24");
+  const [buffetTrainNumber, setBuffetTrainNumber] = useState<string | null>(null);
+  const [buffetSeatCount, setBuffetSeatCount] = useState("");
   const [copySourceLayoutId, setCopySourceLayoutId] = useState("");
   const [copySourceTypeClassKey, setCopySourceTypeClassKey] = useState("");
 
@@ -790,9 +803,15 @@ export default function SeatLayoutsPage() {
       }),
     onSuccess: (result) => {
       activateCreatedLayout(result.layout, result.version_info);
+      setBuffetTrainNumber(null);
       toast.success("تم إنشاء توزيع جديد وفتح المحرر");
     },
-    onError: () => {
+    onError: (error) => {
+      if (isAxiosError(error) && error.response?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ["admin-seat-layouts"] });
+        toast.error("توزيع هذه الدرجة موجود بالفعل لهذا القطار");
+        return;
+      }
       toast.error("تعذر إنشاء التوزيع");
     },
   });
@@ -1104,6 +1123,37 @@ export default function SeatLayoutsPage() {
     });
   };
 
+  const createBuffetLayout = () => {
+    if (!buffetTrainNumber || createLayoutMutation.isPending) return;
+    const seatsPerCoach = Number(buffetSeatCount);
+    if (
+      !Number.isInteger(seatsPerCoach) ||
+      seatsPerCoach < 1 ||
+      seatsPerCoach > 120
+    ) {
+      toast.error("عدد مقاعد عربة البوفيه يجب أن يكون بين 1 و 120");
+      return;
+    }
+    if (
+      layoutRows.some(
+        (layout) =>
+          layout.train_number === buffetTrainNumber &&
+          layout.class_code.trim().toUpperCase() === BUFFET_CLASS_CODE,
+      )
+    ) {
+      toast.error("توزيع عربة البوفيه موجود بالفعل لهذا القطار");
+      return;
+    }
+    createLayoutMutation.mutate({
+      trainNumber: buffetTrainNumber,
+      classCode: BUFFET_CLASS_CODE,
+      classNameAr: "عربة البوفيه",
+      classNameEn: "Buffet car",
+      coachCount: 1,
+      seatsPerCoach,
+    });
+  };
+
   const copyFromSelectedLayout = () => {
     if (!activeTrainNumber || !copySourceLayoutId) return;
     const sourceLayoutId = Number.parseInt(copySourceLayoutId, 10);
@@ -1367,6 +1417,37 @@ export default function SeatLayoutsPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (
+                      isDirty &&
+                      !window.confirm("هناك تعديلات غير محفوظة. هل تريد فتح توزيع جديد بدون حفظها؟")
+                    ) return;
+                    setBuffetSeatCount("");
+                    setBuffetTrainNumber(activeTrainNumber);
+                  }}
+                  disabled={
+                    !selectedTrain ||
+                    layoutsLoading ||
+                    !!layoutsError ||
+                    createLayoutMutation.isPending ||
+                    importMutation.isPending ||
+                    copyLayoutMutation.isPending ||
+                    saveMutation.isPending ||
+                    applyTypeMutation.isPending ||
+                    deleteLayoutMutation.isPending ||
+                    deleteTypeMutation.isPending ||
+                    selectedTrainLayouts.some(
+                      (layout) =>
+                        layout.class_code.trim().toUpperCase() === BUFFET_CLASS_CODE,
+                    )
+                  }
+                  className="gap-2"
+                >
+                  <Coffee className="h-4 w-4" />
+                  إضافة عربة البوفيه
+                </Button>
                 <Button
                   variant={snapToGrid ? "default" : "outline"}
                   onClick={() => setSnapToGrid((value) => !value)}
@@ -1860,6 +1941,71 @@ export default function SeatLayoutsPage() {
           )}
         </div>
       </div>
+      <Dialog
+        open={buffetTrainNumber !== null}
+        onOpenChange={(open) => {
+          if (!open && !createLayoutMutation.isPending) setBuffetTrainNumber(null);
+        }}
+      >
+        <DialogContent
+          dir="rtl"
+          className="w-[calc(100vw_-_2rem)] max-w-md rounded-lg sm:max-w-md [&>[data-slot=dialog-close]]:left-2 [&>[data-slot=dialog-close]]:right-auto"
+          showCloseButton={!createLayoutMutation.isPending}
+        >
+          <DialogHeader className="pl-8">
+            <DialogTitle className="flex items-center gap-2">
+              <Coffee className="h-5 w-5 text-primary" />
+              إضافة عربة البوفيه
+            </DialogTitle>
+            <DialogDescription>قطار {buffetTrainNumber}</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              createBuffetLayout();
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <label htmlFor="buffet-seat-count" className="text-sm font-medium">عدد المقاعد</label>
+              <Input
+                id="buffet-seat-count"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={120}
+                step={1}
+                required
+                value={buffetSeatCount}
+                onChange={(event) => setBuffetSeatCount(event.target.value)}
+                disabled={createLayoutMutation.isPending}
+              />
+            </div>
+            <DialogFooter className="rounded-b-lg">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={createLayoutMutation.isPending}
+                onClick={() => setBuffetTrainNumber(null)}
+              >
+                إلغاء
+              </Button>
+              <Button
+                type="submit"
+                disabled={createLayoutMutation.isPending || !buffetSeatCount.trim()}
+                className="gap-2"
+              >
+                {createLayoutMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                إضافة وفتح المحرر
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
