@@ -15,7 +15,43 @@ export interface ChatMessage {
   reply_to_text?: string;
   love_count?: number;
   loved_by_me?: boolean;
+  is_deleted?: boolean;
+  edited_at?: string | null;
+  updated_at?: string;
+  revision?: number;
   timestamp: string;
+}
+
+export interface ChatMessageMutation {
+  message_id: string;
+  text: string;
+  is_deleted: boolean;
+  edited_at: string | null;
+  updated_at: string;
+  revision: number;
+  reply_to_text?: string | null;
+  reply_updates?: { message_id: string; text?: string; edited_at?: string | null; reply_to_text: string; revision: number; updated_at: string }[];
+}
+
+export function applyChatMessageMutation(messages: ChatMessage[], mutation: ChatMessageMutation): ChatMessage[] {
+  return messages.map(message => {
+    if (message.id === mutation.message_id && mutation.revision > (message.revision ?? 0) && !(message.is_deleted && !mutation.is_deleted)) {
+      return {
+        ...message, text: mutation.is_deleted ? '' : mutation.text,
+        is_deleted: mutation.is_deleted, edited_at: mutation.edited_at,
+        updated_at: mutation.updated_at, revision: mutation.revision,
+        ...(mutation.reply_to_text != null ? { reply_to_text: mutation.reply_to_text } : {}),
+        ...(mutation.is_deleted ? { reply_to_message_id: undefined, reply_to_text: undefined, love_count: 0 } : {}),
+      };
+    }
+    const reply = mutation.reply_updates?.find(update => update.message_id === message.id);
+    if (reply && !message.is_deleted && message.reply_to_message_id === mutation.message_id && reply.revision > (message.revision ?? 0)) {
+      return { ...message, text: reply.text ?? message.text,
+        edited_at: reply.edited_at === undefined ? message.edited_at : reply.edited_at,
+        reply_to_text: reply.reply_to_text, updated_at: reply.updated_at, revision: reply.revision };
+    }
+    return message;
+  });
 }
 
 export interface ChatReport {

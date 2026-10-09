@@ -12,6 +12,7 @@ import {
   Heart,
   Loader2,
   MessageCircle,
+  Pencil,
   Reply,
   Send,
   Shield,
@@ -23,7 +24,7 @@ import {
   X,
 } from "lucide-react"
 
-import { chatApi, type ChatBan, type ChatMessage, type ChatReport } from "@/lib/api/chat"
+import { applyChatMessageMutation, chatApi, type ChatBan, type ChatMessage, type ChatReport } from "@/lib/api/chat"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,7 @@ import { Textarea } from "@/components/ui/textarea"
 type Section = "chat" | "reports" | "bans"
 
 function messageText(message: ChatMessage) {
+  if (message.is_deleted) return "تم حذف هذه الرسالة"
   return message.admin_text ?? message.text
 }
 
@@ -77,7 +79,11 @@ function initials(name?: string | null, fallback?: string | null) {
 function mergeMessages(previous: ChatMessage[], incoming: ChatMessage[]) {
   const byId = new Map<string, ChatMessage>()
   for (const message of previous) byId.set(message.id, message)
-  for (const message of incoming) byId.set(message.id, message)
+  for (const message of incoming) {
+    const current = byId.get(message.id)
+    if (current && ((current.revision ?? 0) > (message.revision ?? 0) || (current.is_deleted && !message.is_deleted))) continue
+    byId.set(message.id, message)
+  }
   return Array.from(byId.values()).sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
   )
@@ -141,11 +147,12 @@ function MessageCard({
               </Badge>
             ) : null}
             <span className="text-xs text-muted-foreground">{formatShortTime(message.timestamp)}</span>
+            {message.edited_at && !message.is_deleted ? <Pencil className="h-3 w-3 text-muted-foreground" aria-label="تم تعديل الرسالة" /> : null}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{shortId(message.user_id)}</p>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => onReply(message)} title="رد">
+          <Button variant="ghost" size="icon" disabled={message.is_deleted} onClick={() => onReply(message)} title="رد">
             <Reply className="h-4 w-4" />
           </Button>
           <Button
@@ -171,7 +178,7 @@ function MessageCard({
         </div>
       </div>
 
-      {message.reply_to_text ? (
+      {!message.is_deleted && message.reply_to_text ? (
         <div className="mt-3 rounded-lg border-r-4 border-primary bg-primary/10 p-2">
           <p className="text-xs font-bold text-primary">{message.reply_to_user_name || "رسالة"}</p>
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{message.reply_to_text}</p>
@@ -179,7 +186,7 @@ function MessageCard({
       ) : null}
 
       <p className="mt-3 whitespace-pre-wrap text-sm leading-7">{messageText(message)}</p>
-      {(message.love_count ?? 0) > 0 ? (
+      {!message.is_deleted && (message.love_count ?? 0) > 0 ? (
         <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-rose-500">
           <Heart className="h-4 w-4 fill-current" />
           {message.love_count}
@@ -374,6 +381,10 @@ export default function GlobalChatAdminPage() {
           } else if (data.type === "message_deleted") {
             setMessages(prev => prev.filter(message => message.id !== data.data.message_id))
             setReplyToMessage(prev => prev?.id === data.data.message_id ? null : prev)
+          } else if (data.type === "message_updated") {
+            setMessages(prev => applyChatMessageMutation(prev, data.data))
+            setReplyToMessage(prev => prev && prev.id === data.data.message_id && data.data.revision > (prev.revision ?? 0)
+              ? (data.data.is_deleted ? null : { ...prev, text: data.data.text, revision: data.data.revision }) : prev)
           } else if (data.type === "chat_cleared") {
             setMessages([])
             setReplyToMessage(null)
@@ -381,7 +392,7 @@ export default function GlobalChatAdminPage() {
             setChatEnabled(data.data.chat_enabled ?? true)
           } else if (data.type === "message_reaction") {
             setMessages(prev => prev.map(message => {
-              if (message.id !== data.data.message_id) return message
+              if (message.id !== data.data.message_id || message.is_deleted) return message
               return { ...message, love_count: data.data.love_count ?? message.love_count }
             }))
           }
