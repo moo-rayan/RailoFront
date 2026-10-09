@@ -118,6 +118,7 @@ export interface CreateSeatLayoutPayload {
   class_name_en?: string;
   coach_count: number;
   seats_per_coach: number;
+  coach_number?: number;
 }
 
 export interface CreateSeatLayoutResult {

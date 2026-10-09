@@ -466,6 +466,7 @@ export default function SeatLayoutsPage() {
   const [manualSeatsPerCoach, setManualSeatsPerCoach] = useState("24");
   const [buffetTrainNumber, setBuffetTrainNumber] = useState<string | null>(null);
   const [buffetSeatCount, setBuffetSeatCount] = useState("");
+  const [buffetCoachNumber, setBuffetCoachNumber] = useState("");
   const [copySourceLayoutId, setCopySourceLayoutId] = useState("");
   const [copySourceTypeClassKey, setCopySourceTypeClassKey] = useState("");
 
@@ -785,6 +786,7 @@ export default function SeatLayoutsPage() {
       classNameEn,
       coachCount,
       seatsPerCoach,
+      coachNumber,
     }: {
       trainNumber: string;
       classCode: string;
@@ -792,6 +794,7 @@ export default function SeatLayoutsPage() {
       classNameEn: string;
       coachCount: number;
       seatsPerCoach: number;
+      coachNumber?: number;
     }) =>
       dataBundleApi.createAdminSeatLayout({
         train_number: trainNumber,
@@ -800,6 +803,7 @@ export default function SeatLayoutsPage() {
         class_name_en: classNameEn,
         coach_count: coachCount,
         seats_per_coach: seatsPerCoach,
+        coach_number: coachNumber,
       }),
     onSuccess: (result) => {
       activateCreatedLayout(result.layout, result.version_info);
@@ -1126,6 +1130,11 @@ export default function SeatLayoutsPage() {
   const createBuffetLayout = () => {
     if (!buffetTrainNumber || createLayoutMutation.isPending) return;
     const seatsPerCoach = Number(buffetSeatCount);
+    const coachNumber = Number(buffetCoachNumber);
+    if (!Number.isInteger(coachNumber) || coachNumber < 1 || coachNumber > 999) {
+      toast.error("رقم العربة يجب أن يكون بين 1 و 999");
+      return;
+    }
     if (
       !Number.isInteger(seatsPerCoach) ||
       seatsPerCoach < 1 ||
@@ -1151,6 +1160,7 @@ export default function SeatLayoutsPage() {
       classNameEn: "Buffet car",
       coachCount: 1,
       seatsPerCoach,
+      coachNumber,
     });
   };
 
@@ -1425,6 +1435,7 @@ export default function SeatLayoutsPage() {
                       !window.confirm("هناك تعديلات غير محفوظة. هل تريد فتح توزيع جديد بدون حفظها؟")
                     ) return;
                     setBuffetSeatCount("");
+                    setBuffetCoachNumber("");
                     setBuffetTrainNumber(activeTrainNumber);
                   }}
                   disabled={
@@ -1967,6 +1978,21 @@ export default function SeatLayoutsPage() {
             className="space-y-4"
           >
             <div className="space-y-2">
+              <label htmlFor="buffet-coach-number" className="text-sm font-medium">رقم العربة</label>
+              <Input
+                id="buffet-coach-number"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={999}
+                step={1}
+                required
+                value={buffetCoachNumber}
+                onChange={(event) => setBuffetCoachNumber(event.target.value)}
+                disabled={createLayoutMutation.isPending}
+              />
+            </div>
+            <div className="space-y-2">
               <label htmlFor="buffet-seat-count" className="text-sm font-medium">عدد المقاعد</label>
               <Input
                 id="buffet-seat-count"
@@ -1992,7 +2018,7 @@ export default function SeatLayoutsPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={createLayoutMutation.isPending || !buffetSeatCount.trim()}
+                disabled={createLayoutMutation.isPending || !buffetSeatCount.trim() || !buffetCoachNumber.trim()}
                 className="gap-2"
               >
                 {createLayoutMutation.isPending ? (
