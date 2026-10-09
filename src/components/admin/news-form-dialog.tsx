@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
+import Image from "next/image"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { newsApi, type NewsArticle } from "@/lib/api/news"
+import { newsApi, type NewsArticle, type UpdateNewsInput } from "@/lib/api/news"
 import {
   Dialog,
   DialogContent,
@@ -26,22 +27,32 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  const uploadControllerRef = useRef<AbortController | null>(null)
 
   const [title, setTitle] = useState("")
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageUrls, setImageUrls] = useState<string[]>([])
   const [isPublished, setIsPublished] = useState(false)
   const [uploading, setUploading] = useState(false)
 
   const isEdit = !!article
 
   useEffect(() => {
+    uploadControllerRef.current?.abort()
+    uploadControllerRef.current = null
+    setUploading(false)
+    let editorTimer: ReturnType<typeof setTimeout> | undefined
     if (open) {
       if (article) {
         setTitle(article.title)
-        setImageUrl(article.image_url)
+        const images = article.image_urls?.length
+          ? article.image_urls
+          : article.image_url ? [article.image_url] : []
+        setImageUrls(images)
+        setImageUrl(images.includes(article.image_url ?? "") ? article.image_url : images[0] ?? null)
         setIsPublished(article.is_published)
         // Set body HTML in the editor after DOM render
-        setTimeout(() => {
+        editorTimer = setTimeout(() => {
           if (editorRef.current) {
             editorRef.current.innerHTML = article.body || ""
           }
@@ -49,13 +60,18 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
       } else {
         setTitle("")
         setImageUrl(null)
+        setImageUrls([])
         setIsPublished(false)
-        setTimeout(() => {
+        editorTimer = setTimeout(() => {
           if (editorRef.current) {
             editorRef.current.innerHTML = ""
           }
         }, 50)
       }
+    }
+    return () => {
+      clearTimeout(editorTimer)
+      uploadControllerRef.current?.abort()
     }
   }, [open, article])
 
@@ -70,7 +86,7 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: number; title?: string; body?: string; image_url?: string | null; is_published?: boolean }) =>
+    mutationFn: ({ id, ...data }: UpdateNewsInput & { id: number }) =>
       newsApi.update(id, data),
     onSuccess: () => {
       toast.success("تم تحديث الخبر بنجاح")
@@ -80,28 +96,59 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
     onError: () => toast.error("فشل تحديث الخبر"),
   })
 
-  const handleImageUpload = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) {
+  const handleImageUpload = useCallback(async (files: File[]) => {
+    if (!files.length || uploadControllerRef.current) return
+    if (imageUrls.length + files.length > 5) {
+      toast.error("الحد الأقصى 5 صور للخبر الواحد")
+      return
+    }
+    if (files.some(file => !file.type.startsWith("image/"))) {
       toast.error("يجب أن يكون الملف صورة")
       return
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("حجم الصورة يجب أن يكون أقل من 5 ميجا")
+    if (files.some(file => file.size === 0 || file.size > 5 * 1024 * 1024)) {
+      toast.error("حجم كل صورة يجب أن يكون بين 1 بايت و5 ميجا")
       return
     }
+    const controller = new AbortController()
+    uploadControllerRef.current = controller
     setUploading(true)
+    const uploaded: string[] = []
+    let failed = 0
     try {
-      const url = await newsApi.uploadImage(file)
-      setImageUrl(url)
-      toast.success("تم رفع الصورة بنجاح")
-    } catch {
-      toast.error("فشل رفع الصورة")
+      for (const file of files) {
+        if (controller.signal.aborted) return
+        try {
+          const url = await newsApi.uploadImage(file, controller.signal)
+          uploaded.push(url)
+        } catch {
+          if (controller.signal.aborted) return
+          failed++
+        }
+      }
+      if (controller.signal.aborted) return
+      if (uploaded.length) {
+        setImageUrls([...imageUrls, ...uploaded])
+        setImageUrl(current => current ?? uploaded[0])
+        toast.success(`تم رفع ${uploaded.length} صورة`)
+      }
+      if (failed) toast.error(`تعذر رفع ${failed} صورة، يمكنك إعادة المحاولة`)
     } finally {
-      setUploading(false)
+      if (!controller.signal.aborted) {
+        uploadControllerRef.current = null
+        setUploading(false)
+      }
     }
-  }, [])
+  }, [imageUrls])
+
+  const removeImage = (url: string) => {
+    const remaining = imageUrls.filter(image => image !== url)
+    setImageUrls(remaining)
+    if (imageUrl === url) setImageUrl(remaining[0] ?? null)
+  }
 
   const handleSubmit = () => {
+    if (uploading || createMutation.isPending || updateMutation.isPending) return
     if (!title.trim()) {
       toast.error("العنوان مطلوب")
       return
@@ -115,6 +162,7 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
         title: title.trim(),
         body,
         image_url: imageUrl,
+        image_urls: imageUrls,
         is_published: isPublished,
       })
     } else {
@@ -122,6 +170,7 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
         title: title.trim(),
         body,
         image_url: imageUrl,
+        image_urls: imageUrls,
         is_published: isPublished,
       })
     }
@@ -133,19 +182,22 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
+  const busy = isPending || uploading
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={(value) => { if (!busy) onOpenChange(value) }}>
+      <DialogContent dir="rtl" showCloseButton={!busy} className="w-[calc(100vw_-_2rem)] sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg [&>[data-slot=dialog-close]]:left-2 [&>[data-slot=dialog-close]]:right-auto">
+        <DialogHeader className="pl-8">
           <DialogTitle>{isEdit ? "تعديل الخبر" : "خبر جديد"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
           {/* Title */}
           <div className="space-y-2">
-            <Label>العنوان *</Label>
+            <Label htmlFor="news-title">العنوان *</Label>
             <Input
+              id="news-title"
+              disabled={busy}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="عنوان الخبر..."
@@ -155,48 +207,46 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
 
           {/* Image */}
           <div className="space-y-2">
-            <Label>الصورة</Label>
-            {imageUrl ? (
-              <div className="relative group">
-                <img
-                  src={imageUrl}
-                  alt="preview"
-                  className="w-full max-h-48 object-cover rounded-lg border"
-                />
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 left-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => setImageUrl(null)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+            <div className="flex items-center justify-between gap-2">
+              <Label>الصور ({imageUrls.length}/5)</Label>
+              <Button type="button" variant="outline" size="sm" disabled={busy || imageUrls.length >= 5} onClick={() => fileInputRef.current?.click()} className="gap-2">
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {uploading ? "جارٍ رفع الصور" : "إضافة صور"}
+              </Button>
+            </div>
+            {imageUrls.length ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {imageUrls.map((url, index) => (
+                  <div key={url} className={`overflow-hidden rounded-lg border ${imageUrl === url ? "border-primary" : "border-border"}`}>
+                    <div className="relative aspect-[4/3] bg-muted">
+                      <Image src={url} alt={`صورة الخبر ${index + 1}`} fill unoptimized sizes="(max-width: 640px) 45vw, 200px" className="object-contain" />
+                      <Button type="button" variant="destructive" size="icon" title={`حذف الصورة ${index + 1}`} aria-label={`حذف الصورة ${index + 1}`} disabled={busy} className="absolute left-1 top-1 h-7 w-7" onClick={() => removeImage(url)}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 p-2 text-xs">
+                      <input type="radio" name="news-cover" aria-label={`الصورة الرئيسية ${index + 1}`} checked={imageUrl === url} disabled={busy} onChange={() => setImageUrl(url)} className="accent-primary" />
+                      الصورة الرئيسية
+                    </label>
+                  </div>
+                ))}
               </div>
             ) : (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-8 cursor-pointer hover:border-primary/50 transition-colors"
-              >
-                {uploading ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                ) : (
-                  <>
-                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      اضغط لرفع صورة (حد أقصى 5 ميجا)
-                    </span>
-                  </>
-                )}
+              <div className="flex h-24 items-center justify-center rounded-lg border border-dashed text-muted-foreground">
+                <ImageIcon className="h-8 w-8" />
               </div>
             )}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
+              disabled={busy}
+              aria-label="رفع صور الخبر"
               className="hidden"
               onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) handleImageUpload(file)
+                const files = Array.from(e.target.files ?? [])
+                void handleImageUpload(files)
                 e.target.value = ""
               }}
             />
@@ -213,6 +263,7 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
                   variant="ghost"
                   size="sm"
                   onClick={handleBold}
+                  disabled={busy}
                   className="h-8 w-8 p-0"
                   title="غامق"
                 >
@@ -222,7 +273,7 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
               {/* Editor */}
               <div
                 ref={editorRef}
-                contentEditable
+                contentEditable={!busy}
                 dir="auto"
                 className="min-h-[150px] max-h-[300px] overflow-y-auto p-3 text-sm focus:outline-none"
                 style={{ whiteSpace: "pre-wrap" }}
@@ -238,15 +289,15 @@ export function NewsFormDialog({ open, onOpenChange, article }: NewsFormDialogPr
                 سيظهر الخبر في التطبيق فور النشر
               </p>
             </div>
-            <Switch checked={isPublished} onCheckedChange={setIsPublished} />
+            <Switch checked={isPublished} onCheckedChange={setIsPublished} disabled={busy} />
           </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
               إلغاء
             </Button>
-            <Button onClick={handleSubmit} disabled={isPending}>
+            <Button onClick={handleSubmit} disabled={busy}>
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin ml-2" />
               ) : null}

@@ -5,6 +5,7 @@ export interface NewsArticle {
   title: string
   body: string
   image_url: string | null
+  image_urls: string[]
   is_published: boolean
   published_at: string | null
   created_at: string
@@ -23,6 +24,7 @@ export interface CreateNewsInput {
   title: string
   body?: string
   image_url?: string | null
+  image_urls?: string[]
   is_published?: boolean
 }
 
@@ -30,6 +32,7 @@ export interface UpdateNewsInput {
   title?: string
   body?: string
   image_url?: string | null
+  image_urls?: string[]
   is_published?: boolean
 }
 
@@ -55,11 +58,12 @@ export const newsApi = {
     await apiClient.delete(`/news/admin/${id}`)
   },
 
-  uploadImage: async (file: File): Promise<string> => {
+  uploadImage: async (file: File, signal?: AbortSignal): Promise<string> => {
     const formData = new FormData()
     formData.append("file", file)
     const { data } = await apiClient.post("/news/admin/upload-image", formData, {
       headers: { "Content-Type": "multipart/form-data" },
+      signal,
     })
     return data.url
   },

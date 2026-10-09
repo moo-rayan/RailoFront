@@ -198,13 +198,15 @@ export default function NewsPage() {
                             <Eye className="h-4 w-4" />
                           )}
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(article)}>
+                        <Button variant="ghost" size="icon" title="تعديل الخبر" aria-label="تعديل الخبر" onClick={() => handleEdit(article)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => setDeleteTarget(article)}
+                          title="حذف الخبر"
+                          aria-label="حذف الخبر"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
